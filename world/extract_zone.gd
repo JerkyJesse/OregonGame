@@ -82,10 +82,9 @@ func _process(delta: float) -> void:
 				Fx.play("alarm")
 			Fx.play("extract")
 			_progress = 0.0
-			if NetSession.is_host():
-				RunState.extract_to_hangar()
-			else:
+			if NetSession.is_online() and not NetSession.is_host():
 				_rpc_extract.rpc_id(1)
+			RunState.extract_to_hangar()
 	else:
 		_progress = maxf(_progress - delta * 0.45, 0.0)
 		if _progress > 0.0:
@@ -97,7 +96,7 @@ func _process(delta: float) -> void:
 @rpc("any_peer", "reliable")
 func _rpc_extract() -> void:
 	if NetSession.is_host():
-		RunState.extract_to_hangar()
+		Hud.show_banner("A scavenger extracted.")
 
 
 func _has_payload() -> bool:

@@ -1,28 +1,36 @@
 extends Node3D
 
-const LIGHT_SCENE := preload("res://actors/light_mech.tscn")
+const RD := preload("res://scripts/raid_director.gd")
+
+
+func _enter_tree() -> void:
+	Hud.enter_gameplay()
 
 
 func _ready() -> void:
 	RunState.in_raid = false
+	Hud.enter_gameplay()
 	Hud.reset_for_scene()
-	Hud.set_objective("TEST RANGE — first-person cockpit live fire. [F] dismount. Walk into the orange door volume to return.")
+	Hud.set_objective("TEST RANGE — cockpit live fire. [F] dismount. Walk into the orange RETURN volume behind you.")
 	if has_node("WorldEnvironment"):
 		($WorldEnvironment as WorldEnvironment).environment = Greybox.industrial_env(Color(0.2, 0.18, 0.16), 0.003)
 	if has_node("Props"):
 		Greybox.build_range($Props)
 	if has_node("LightMech"):
 		$LightMech.hangar_preview = false
+		$LightMech.disabled = false
+		$LightMech.alive = true
 		if has_node("Scavenger"):
 			$LightMech.board_pilot($Scavenger)
 	_dummy_targets()
+	_spawn_exit()
 
 
 func _dummy_targets() -> void:
 	for i in 3:
 		var b: Node3D = (load("res://world/breakable.gd") as GDScript).new()
 		b.position = Vector3(-6 + i * 6, 1.4, -30)
-		b.hp = 50
+		b.set("hp", 50)
 		var mesh := MeshInstance3D.new()
 		var box := BoxMesh.new()
 		box.size = Vector3(1.6, 2.8, 0.6)
@@ -37,10 +45,36 @@ func _dummy_targets() -> void:
 		add_child(b)
 
 
-func spawn_loot(_part: Dictionary, _pos: Vector3) -> void:
-	pass
+func spawn_loot(part: Dictionary, pos: Vector3) -> void:
+	RD.spawn_loot(self, part, pos)
 
 
-func _process(_delta: float) -> void:
-	if has_node("Scavenger") and $Scavenger.global_position.z > 10.0:
-		get_tree().change_scene_to_file("res://scenes/hangar.tscn")
+func _spawn_exit() -> void:
+	var exit: Area3D = (load("res://world/range_exit.gd") as GDScript).new()
+	exit.position = Vector3(0, 0, 12)
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(6, 3.2, 1.2)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.95, 0.45, 0.08, 0.85)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.4, 0.05)
+	mat.emission_energy_multiplier = 1.4
+	box.material = mat
+	mesh.mesh = box
+	mesh.position.y = 1.6
+	exit.add_child(mesh)
+	var col := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(6, 3.2, 1.6)
+	col.shape = sh
+	col.position.y = 1.6
+	exit.add_child(col)
+	var lab := Label3D.new()
+	lab.text = "RETURN TO HANGAR"
+	lab.position = Vector3(0, 3.4, 0)
+	lab.font_size = 48
+	lab.modulate = Color(1, 0.7, 0.2)
+	exit.add_child(lab)
+	add_child(exit)

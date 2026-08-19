@@ -58,7 +58,7 @@ static func industrial_env(fog: Color, dens: float) -> Environment:
 	e.fog_density = dens
 	e.fog_aerial_perspective = 0.4
 	e.glow_enabled = true
-	e.ssao_enabled = true
+	e.ssao_enabled = false
 	return e
 
 
@@ -130,6 +130,5 @@ static func build_range(parent: Node3D) -> void:
 	add_box(parent, Vector3(-6, 1.6, -28), Vector3(2, 3.2, 1), Color(0.7, 0.2, 0.1), 0.5)
 	add_box(parent, Vector3(6, 1.6, -28), Vector3(2, 3.2, 1), Color(0.7, 0.2, 0.1), 0.5)
 	add_box(parent, Vector3(0, 2.4, -36), Vector3(3, 4.8, 1.4), Color(0.55, 0.18, 0.1), 0.7)
-	add_collider(parent, Vector3(0, 6, -22), Vector3(28, 12, 0.6))
 	add_collider(parent, Vector3(-14, 6, -8), Vector3(0.6, 12, 28))
 	add_collider(parent, Vector3(14, 6, -8), Vector3(0.6, 12, 28))

@@ -48,14 +48,54 @@ var extracted_value: int = 0
 func _ready() -> void:
 	_empty_loadouts()
 	if not load_state():
-		stash.clear()
-		stash.append(make_part("armor_plate", 1.0))
-		stash.append(make_part("actuator_leg", 0.9))
-		stash.append(make_part("vulcan_chest", 0.85))
-		stash.append(make_part("compact_reactor", 0.8))
-		stash.append(make_part("myomer_strand", 0.92))
-		credits = 120
-		save_state()
+		new_game()
+
+
+func new_game() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(SAVE_PATH)
+	stash.clear()
+	_empty_loadouts()
+	credits = 120
+	hangar_tier = 1
+	repair_skill = 0.35
+	paint_index = 0
+	unlocked_scales = ["light", "armor"]
+	faction = "scav"
+	deploy_scale = "scavenger"
+	raid_mode = "combat"
+	raid_map = "ash_yard"
+	last_message = ""
+	in_raid = false
+	health = 100.0
+	raid_carry.clear()
+	secure_carry.clear()
+	stash.append(make_part("armor_plate", 1.0))
+	stash.append(make_part("actuator_leg", 0.9))
+	stash.append(make_part("vulcan_chest", 0.85))
+	stash.append(make_part("compact_reactor", 0.8))
+	stash.append(make_part("myomer_strand", 0.92))
+	stash.append(make_part("sensor_suite", 0.9))
+	_seed_starter_loadout()
+	save_state()
+
+
+func _seed_starter_loadout() -> void:
+	var gun := make_part("vulcan_chest", 0.95)
+	var reac := make_part("compact_reactor", 0.9)
+	var legs := make_part("myomer_strand", 0.92)
+	if not gun.is_empty():
+		loadouts["light"]["chest"] = gun
+		loadouts["armor"]["chest"] = make_part("vulcan_chest", 0.9)
+	if not reac.is_empty():
+		loadouts["light"]["reactor"] = reac
+		loadouts["armor"]["reactor"] = make_part("compact_reactor", 0.88)
+	if not legs.is_empty():
+		loadouts["light"]["legs"] = legs
+		loadouts["armor"]["legs"] = make_part("myomer_strand", 0.9)
+	var sens := make_part("sensor_suite", 0.9)
+	if not sens.is_empty():
+		loadouts["light"]["sensors"] = sens
 
 
 func _empty_loadouts() -> void:
@@ -256,6 +296,8 @@ func begin_raid() -> void:
 func add_carry(part: Dictionary, secure: bool = false) -> bool:
 	if part.is_empty():
 		return false
+	if not NetSession.sanity_loot(part):
+		return false
 	if not can_carry(part):
 		last_message = "Overweight — dump something or extract."
 		return false
@@ -287,6 +329,8 @@ func extract_to_hangar() -> void:
 	else:
 		last_message = "Extracted empty-handed."
 	save_state()
+	if NetSession.is_online():
+		NetSession.disconnect_game()
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
 
 
@@ -309,6 +353,8 @@ func fail_raid(reason: String, lose_machine: bool = false) -> void:
 	secure_carry.clear()
 	last_message = reason
 	save_state()
+	if NetSession.is_online():
+		NetSession.disconnect_game()
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
 
 
@@ -373,7 +419,10 @@ func _unlock_from_wealth() -> void:
 	if credits >= 700 and not unlocked_scales.has("heavy"):
 		unlocked_scales.append("heavy")
 	if credits >= 400 and hangar_tier == 1:
-		pass
+		hangar_tier = 2
+		if not unlocked_scales.has("medium"):
+			unlocked_scales.append("medium")
+			unlocked_scales.append("vehicle")
 
 
 func scale_unlocked(scale: String) -> bool:
@@ -465,6 +514,13 @@ func load_state() -> bool:
 	deploy_scale = str(data.get("deploy_scale", deploy_scale))
 	raid_mode = str(data.get("raid_mode", raid_mode))
 	raid_map = str(data.get("raid_map", raid_map))
+	var light_empty := true
+	for slot in SLOTS:
+		if not get_equipped(slot, "light").is_empty():
+			light_empty = false
+			break
+	if light_empty:
+		_seed_starter_loadout()
 	return true
 
 

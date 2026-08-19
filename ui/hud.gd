@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 var ui_busy: bool = false
+var gameplay_active: bool = false
 var _picker_slot: String = ""
 var _picker_scale: String = "light"
 var _picker_uids: Array[String] = []
@@ -8,6 +9,8 @@ var _banner_left: float = 0.0
 var _from_loadout: bool = false
 var _workshop_scale: String = "light"
 var _filter: String = "all"
+var _bay_mech: Node
+var _repair_uids: Array[String] = []
 
 @onready var _prompt: Label = $PromptLabel
 @onready var _objective: Label = $ObjectiveLabel
@@ -27,19 +30,41 @@ var _filter: String = "all"
 var _heat: ProgressBar
 var _timer: Label
 var _net: Label
+var _sensors: Label
 var _deploy: PanelContainer
 var _vendor: PanelContainer
+var _bay: PanelContainer
+var _repair: PanelContainer
 var _filter_row: HBoxContainer
 
 
 func _ready() -> void:
 	layer = 10
-	close_all_ui()
+	visible = false
+	gameplay_active = false
+	ui_busy = false
 	_extract_wrap.visible = false
 	_banner.text = ""
 	_build_extras()
+	_ignore_hud_mouse()
 	refresh_carry()
 	set_health(RunState.health)
+	set_process(false)
+
+
+func freeze_for_title() -> void:
+	gameplay_active = false
+	ui_busy = false
+	visible = false
+	set_process(false)
+	close_all_ui()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func enter_gameplay() -> void:
+	gameplay_active = true
+	visible = true
+	set_process(true)
 
 
 func _build_extras() -> void:
@@ -54,17 +79,28 @@ func _build_extras() -> void:
 	_heat.offset_bottom = -32
 	_heat.anchor_top = 1.0
 	_heat.anchor_bottom = 1.0
+	_heat.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_heat)
 	_timer = Label.new()
 	_timer.position = Vector2(24, 108)
 	_timer.add_theme_font_size_override("font_size", 15)
 	_timer.add_theme_color_override("font_color", Color(0.95, 0.7, 0.35))
+	_timer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_timer)
 	_net = Label.new()
 	_net.position = Vector2(24, 132)
 	_net.add_theme_font_size_override("font_size", 13)
 	_net.add_theme_color_override("font_color", Color(0.65, 0.75, 0.8))
+	_net.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_net)
+	_sensors = Label.new()
+	_sensors.position = Vector2(24, 156)
+	_sensors.add_theme_font_size_override("font_size", 13)
+	_sensors.add_theme_color_override("font_color", Color(0.85, 0.9, 0.45))
+	_sensors.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sensors.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_sensors.size = Vector2(900, 40)
+	add_child(_sensors)
 	_filter_row = HBoxContainer.new()
 	_loadout_box.get_parent().add_child(_filter_row)
 	_loadout_box.get_parent().move_child(_filter_row, 2)
@@ -76,6 +112,8 @@ func _build_extras() -> void:
 
 
 func _process(delta: float) -> void:
+	if not gameplay_active:
+		return
 	if _banner_left > 0.0:
 		_banner_left -= delta
 		_banner.modulate.a = clampf(_banner_left / 0.4, 0.0, 1.0) if _banner_left < 0.4 else 1.0
@@ -92,10 +130,12 @@ func _process(delta: float) -> void:
 
 
 func reset_for_scene() -> void:
+	enter_gameplay()
 	close_all_ui()
 	set_prompt("")
 	set_extract(-1.0)
 	set_heat(-1.0)
+	set_sensors("")
 	refresh_carry()
 	set_health(RunState.health)
 
@@ -111,6 +151,11 @@ func set_objective(text: String) -> void:
 func set_health(value: float) -> void:
 	_health.text = "HULL  %d" % int(round(value))
 	_health.visible = true
+
+
+func set_sensors(text: String) -> void:
+	if _sensors:
+		_sensors.text = text
 
 
 func set_heat(ratio: float) -> void:
@@ -174,6 +219,159 @@ func open_workshop(scale: String) -> void:
 	_rebuild_loadout_buttons()
 
 
+func open_machine_bay(mech: Node) -> void:
+	_bay_mech = mech
+	ui_busy = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_crosshair.visible = false
+	if _bay:
+		_bay.queue_free()
+	_bay = _panel("STRIP / BOLT  %s" % str(mech.get("scale_id")).to_upper())
+	add_child(_bay)
+	var box: VBoxContainer = _bay.get_node("M/V")
+	_add_label(box, "Look-free wreck workbench. Strip parts into carry, then bolt them onto another frame.")
+	var pack: Variant = mech.get("equipped")
+	var equipped: Dictionary = pack if pack is Dictionary else {}
+	for slot in RunState.SLOTS:
+		var part: Variant = equipped.get(slot, {})
+		var row := HBoxContainer.new()
+		var lab := Label.new()
+		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if part is Dictionary and not (part as Dictionary).is_empty():
+			lab.text = "%s  %s  %.0f%%" % [slot.to_upper(), part.get("display_name", "?"), float(part.get("condition", 1.0)) * 100.0]
+			var strip := Button.new()
+			strip.text = "Strip"
+			strip.pressed.connect(_bay_strip.bind(slot))
+			row.add_child(lab)
+			row.add_child(strip)
+		else:
+			lab.text = "%s  empty" % slot.to_upper()
+			var bolt := Button.new()
+			bolt.text = "Bolt from carry"
+			bolt.pressed.connect(_bay_bolt.bind(slot))
+			row.add_child(lab)
+			row.add_child(bolt)
+		box.add_child(row)
+	if not bool(mech.get("core_taken")):
+		var hack := Button.new()
+		hack.text = "Hold-hack data core (exposed)"
+		hack.button_down.connect(_bay_hack_start)
+		box.add_child(hack)
+	if str(mech.get("scale_id")) == "heavy":
+		var pry := Button.new()
+		pry.text = "Pry plate (alerts the heavy)"
+		pry.pressed.connect(_bay_pry)
+		box.add_child(pry)
+	var hw := Button.new()
+	hw.text = "Attempt hotwire"
+	hw.pressed.connect(_bay_hotwire)
+	box.add_child(hw)
+	if not bool(mech.get("disabled")) and bool(mech.get("alive")) and not bool(mech.get("boarded")):
+		var board := Button.new()
+		board.text = "Board cockpit"
+		board.pressed.connect(_bay_board)
+		box.add_child(board)
+	var close := Button.new()
+	close.text = "Close"
+	close.pressed.connect(close_all_ui)
+	box.add_child(close)
+
+
+func _bay_strip(slot: String) -> void:
+	if _bay_mech == null or not is_instance_valid(_bay_mech):
+		return
+	var taken: Dictionary = _bay_mech.call("field_strip", slot)
+	if taken.is_empty():
+		return
+	if RunState.add_carry(taken):
+		refresh_carry()
+		show_banner("Stripped %s — now it's yours." % taken.get("display_name", "part"))
+		Fx.play("ui")
+		open_machine_bay(_bay_mech)
+	else:
+		_bay_mech.call("field_install", taken)
+		show_banner("Carry full.")
+
+
+func _bay_bolt(slot: String) -> void:
+	if _bay_mech == null or not is_instance_valid(_bay_mech):
+		return
+	var scale := str(_bay_mech.get("scale_id"))
+	var bags: Array[Dictionary] = []
+	bags.append_array(RunState.raid_carry)
+	bags.append_array(RunState.secure_carry)
+	var chosen: Dictionary = {}
+	for part in bags:
+		if str(part.get("slot", "")) == slot and RunState.scale_ok(part, scale):
+			chosen = part
+			break
+	if chosen.is_empty():
+		show_banner("No compatible part in carry for %s." % slot)
+		return
+	_remove_carry(str(chosen.get("uid", "")))
+	if bool(_bay_mech.call("field_install", chosen)):
+		refresh_carry()
+		show_banner("Bolted %s onto the %s." % [chosen.get("display_name", "part"), scale])
+		open_machine_bay(_bay_mech)
+	else:
+		RunState.add_carry(chosen)
+
+
+func _remove_carry(uid: String) -> void:
+	for i in RunState.raid_carry.size():
+		if str(RunState.raid_carry[i].get("uid", "")) == uid:
+			RunState.raid_carry.remove_at(i)
+			return
+	for i in RunState.secure_carry.size():
+		if str(RunState.secure_carry[i].get("uid", "")) == uid:
+			RunState.secure_carry.remove_at(i)
+			return
+
+
+func _bay_hack_start() -> void:
+	if _bay_mech == null:
+		return
+	var scav := _local_scav()
+	if scav and _bay_mech.has_method("hold_hack_core"):
+		_bay_mech.call("hold_hack_core", scav, 0.35)
+		open_machine_bay(_bay_mech)
+
+
+func _bay_pry() -> void:
+	if _bay_mech == null:
+		return
+	var scav := _local_scav()
+	if scav and _bay_mech.has_method("hold_pry"):
+		_bay_mech.call("hold_pry", scav, 0.4)
+		refresh_carry()
+
+
+func _bay_hotwire() -> void:
+	if _bay_mech == null:
+		return
+	var scav := _local_scav()
+	if scav and _bay_mech.has_method("hold_hotwire"):
+		_bay_mech.call("hold_hotwire", scav, 0.5)
+		if bool(_bay_mech.get("boarded")):
+			close_all_ui()
+
+
+func _bay_board() -> void:
+	if _bay_mech == null:
+		return
+	var scav := _local_scav()
+	if scav and _bay_mech.has_method("board_pilot"):
+		close_all_ui()
+		_bay_mech.call("board_pilot", scav)
+
+
+func _local_scav() -> Node:
+	for n in get_tree().get_nodes_in_group("scavenger"):
+		if n is Scavenger and (n as Scavenger)._local() and not (n as Scavenger).boarded:
+			return n
+	return null
+
+
 func open_slot_picker(slot: String, scale: String = "") -> void:
 	_from_loadout = _loadout_panel.visible
 	_picker_slot = slot
@@ -203,18 +401,42 @@ func close_all_ui() -> void:
 	_from_loadout = false
 	_picker_slot = ""
 	_picker_uids.clear()
+	_bay_mech = null
 	if _slot_panel:
 		_slot_panel.visible = false
 	if _loadout_panel:
 		_loadout_panel.visible = false
 	if _deploy:
-		_deploy.visible = false
+		_deploy.queue_free()
+		_deploy = null
 	if _vendor:
-		_vendor.visible = false
+		_vendor.queue_free()
+		_vendor = null
+	if _bay:
+		_bay.queue_free()
+		_bay = null
+	if _repair:
+		_repair.queue_free()
+		_repair = null
 	if _crosshair:
-		_crosshair.visible = true
-	if is_inside_tree() and get_tree().current_scene != null:
+		_crosshair.visible = _in_gameplay_scene()
+	if gameplay_active and _in_gameplay_scene() and not ui_busy:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _in_gameplay_scene() -> bool:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return false
+	var path := get_tree().current_scene.scene_file_path
+	return path.ends_with("hangar.tscn") or path.ends_with("raid.tscn") or path.ends_with("range.tscn") or path.ends_with("pipeline.tscn")
+
+
+func _ignore_hud_mouse() -> void:
+	for child in get_children():
+		if child is Control and child != _slot_panel and child != _loadout_panel:
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _rebuild_loadout_buttons() -> void:
@@ -243,8 +465,8 @@ func _rebuild_loadout_buttons() -> void:
 	paint.text = "Cycle paint"
 	paint.pressed.connect(_on_paint)
 	var repair := Button.new()
-	repair.text = "Repair selected / stash"
-	repair.pressed.connect(_on_repair_open)
+	repair.text = "Repair parts"
+	repair.pressed.connect(open_repair)
 	var up := Button.new()
 	up.text = "Upgrade hangar (%d cr)" % (RunState.hangar_tier * 400)
 	up.pressed.connect(_on_upgrade)
@@ -273,17 +495,55 @@ func _on_upgrade() -> void:
 	refresh_carry()
 
 
+func open_repair() -> void:
+	ui_busy = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_crosshair.visible = false
+	if _repair:
+		_repair.queue_free()
+	_repair = _panel("REFURBISH")
+	add_child(_repair)
+	var box: VBoxContainer = _repair.get_node("M/V")
+	_repair_uids.clear()
+	_add_label(box, "Pick a damaged part. Cost scales with condition.")
+	var list := ItemList.new()
+	list.custom_minimum_size = Vector2(0, 220)
+	box.add_child(list)
+	for part in RunState.stash:
+		if float(part.get("condition", 1.0)) < 0.99:
+			_repair_uids.append(str(part.get("uid", "")))
+			list.add_item("%s  %.0f%%  %s" % [part.get("display_name", "?"), float(part.get("condition", 1.0)) * 100.0, part.get("rarity", "")])
+	for scale in RunState.SCALES:
+		for slot in RunState.SLOTS:
+			var eq := RunState.get_equipped(slot, scale)
+			if not eq.is_empty() and float(eq.get("condition", 1.0)) < 0.99:
+				_repair_uids.append(str(eq.get("uid", "")))
+				list.add_item("%s/%s  %s  %.0f%%" % [scale, slot, eq.get("display_name", "?"), float(eq.get("condition", 1.0)) * 100.0])
+	if _repair_uids.is_empty():
+		list.add_item("(nothing damaged)")
+		list.set_item_disabled(0, true)
+	var go := Button.new()
+	go.text = "Repair selected"
+	go.pressed.connect(func() -> void:
+		var sel := list.get_selected_items()
+		if sel.is_empty() or sel[0] >= _repair_uids.size():
+			return
+		if RunState.repair_part(_repair_uids[sel[0]]):
+			show_banner("Refurbished.")
+		else:
+			show_banner(RunState.last_message)
+		refresh_carry()
+		open_repair()
+	)
+	box.add_child(go)
+	var close := Button.new()
+	close.text = "Close"
+	close.pressed.connect(close_all_ui)
+	box.add_child(close)
+
+
 func _on_repair_open() -> void:
-	if RunState.stash.is_empty():
-		show_banner("Nothing to refurbish.")
-		return
-	var part: Dictionary = RunState.stash[0]
-	if RunState.repair_part(str(part.get("uid", ""))):
-		show_banner("Refurbished %s." % part.get("display_name", "part"))
-	else:
-		show_banner(RunState.last_message)
-	refresh_carry()
-	_rebuild_loadout_buttons()
+	open_repair()
 
 
 func _on_loadout_slot(slot: String) -> void:
@@ -374,7 +634,7 @@ func open_deploy() -> void:
 	_add_label(box, "Map / faction")
 	for m in ["ash_yard", "pipeline"]:
 		var b := Button.new()
-		b.text = m.replace("_", " ").capitalize()
+		b.text = m.replace("_line", " ").replace("_", " ").capitalize()
 		b.pressed.connect(_pick_map.bind(m))
 		box.add_child(b)
 	for f in RunState.FACTIONS:
@@ -429,9 +689,13 @@ func _host() -> void:
 
 
 func _join() -> void:
-	if NetSession.join_game("127.0.0.1") == OK:
+	_join_async()
+
+
+func _join_async() -> void:
+	var err := await NetSession.join_and_wait("127.0.0.1")
+	if err == OK:
 		show_banner("Joining…")
-		await get_tree().create_timer(0.4).timeout
 		_launch()
 	else:
 		show_banner("Join failed.")
@@ -496,10 +760,10 @@ func _buy_paint() -> void:
 func _panel(title: String) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.set_anchors_preset(Control.PRESET_CENTER)
-	p.offset_left = -260
-	p.offset_top = -280
-	p.offset_right = 260
-	p.offset_bottom = 280
+	p.offset_left = -280
+	p.offset_top = -300
+	p.offset_right = 280
+	p.offset_bottom = 300
 	var m := MarginContainer.new()
 	m.name = "M"
 	m.add_theme_constant_override("margin_left", 16)
@@ -520,6 +784,7 @@ func _panel(title: String) -> PanelContainer:
 func _add_label(box: VBoxContainer, text: String) -> void:
 	var l := Label.new()
 	l.text = text
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD
 	box.add_child(l)
 
 

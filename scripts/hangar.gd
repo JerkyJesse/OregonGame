@@ -6,10 +6,15 @@ const HEAVY_SCENE := preload("res://actors/heavy_mech.tscn")
 const HAULER_SCENE := preload("res://actors/hauler.tscn")
 
 
+func _enter_tree() -> void:
+	Hud.enter_gameplay()
+
+
 func _ready() -> void:
 	RunState.in_raid = false
+	Hud.enter_gameplay()
 	Hud.reset_for_scene()
-	Hud.set_objective("HANGAR TIER %d  — bolt parts [E] on frames. Deploy at the console. Range door. Vendor. First-person only." % RunState.hangar_tier)
+	Hud.set_objective("HANGAR TIER %d  — bolt parts [E] on frames. Deploy at the console. Range door. Vendor." % RunState.hangar_tier)
 	Hud.refresh_carry()
 	_lights()
 	if has_node("WorldEnvironment"):
@@ -37,6 +42,7 @@ func _park_frames() -> void:
 		$LightMech.hangar_preview = true
 		$LightMech.power_armor = false
 		$LightMech.scale_id = "light"
+		$LightMech.apply_loadout()
 	var armor: Node3D = LIGHT_SCENE.instantiate()
 	armor.set("hangar_preview", true)
 	armor.set("power_armor", true)

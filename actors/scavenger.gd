@@ -23,27 +23,42 @@ var peer_id: int = 1
 func _ready() -> void:
 	add_to_group("player")
 	add_to_group("scavenger")
-	if not Hud.ui_busy:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_camera.current = true
 	set_multiplayer_authority(peer_id)
+	call_deferred("_boot_camera")
+
+
+func _boot_camera() -> void:
+	if not is_inside_tree():
+		return
+	if not Hud.gameplay_active:
+		if _camera:
+			_camera.current = false
+		return
+	if _local() and not Hud.ui_busy:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if _camera:
+		_camera.current = _local() and not boarded
 
 
 func set_boarded(value: bool) -> void:
 	boarded = value
 	visible = not value
 	_collision.disabled = value
-	_camera.current = not value
+	if _camera:
+		_camera.current = (not value) and _local()
 	set_physics_process(not value)
 	if value:
 		remove_from_group("player")
 	else:
 		add_to_group("player")
-		Hud.set_health(RunState.health)
+		if _local():
+			Hud.set_health(RunState.health)
+			if not Hud.ui_busy:
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if boarded or Hud.ui_busy:
+	if boarded or Hud.ui_busy or not Hud.gameplay_active:
 		return
 	if not _local():
 		return
@@ -65,7 +80,7 @@ func _local() -> bool:
 
 
 func _physics_process(delta: float) -> void:
-	if boarded:
+	if boarded or not Hud.gameplay_active:
 		return
 	_fire_cd = maxf(_fire_cd - delta, 0.0)
 	if not is_on_floor():
@@ -96,7 +111,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	if _local():
-		_update_interact()
+		_update_interact(delta)
 		if Input.is_action_pressed("fire") and not Hud.ui_busy:
 			_scav_fire()
 		_sync_pose()
@@ -118,7 +133,7 @@ func _rpc_pose(pos: Vector3, yaw: float, pitch: float) -> void:
 		_camera.rotation.x = pitch
 
 
-func _update_interact() -> void:
+func _update_interact(delta: float) -> void:
 	if Hud.ui_busy:
 		return
 	if _in_extract():
@@ -128,37 +143,72 @@ func _update_interact() -> void:
 	var target := _interactable()
 	if target:
 		Hud.set_prompt(str(target.call("get_interact_label")))
-		if Input.is_action_just_pressed("interact"):
+		if Input.is_action_just_pressed("interact") and not Input.is_key_pressed(KEY_SHIFT):
 			target.call("interact", self)
-		if Input.is_action_just_pressed("hotwire") and target.has_method("begin_hotwire"):
-			target.call("begin_hotwire", self)
+		if Input.is_action_pressed("hotwire") and target.has_method("hold_hotwire"):
+			target.call("hold_hotwire", self, delta)
+		elif target.has_method("reset_channels") and not Input.is_action_pressed("hotwire"):
+			target.call("reset_channels")
+		if Input.is_action_pressed("interact") and target.has_method("hold_hack_core") and Input.is_key_pressed(KEY_SHIFT):
+			target.call("hold_hack_core", self, delta)
 	else:
-		Hud.set_prompt("RMB/LMB scav gun   [E] interact   [F] board   [G] hotwire   CTRL crawl")
+		Hud.set_prompt("LMB scav gun   [E] use   [F] board   [G] hold hotwire   CTRL crawl")
+		_decay_nearby_channels()
 	if Input.is_action_just_pressed("board"):
 		_try_board_nearby()
 	if Input.is_action_just_pressed("deploy"):
 		_try_deploy()
 
 
+func _decay_nearby_channels() -> void:
+	for mech in get_tree().get_nodes_in_group("machine"):
+		if mech.has_method("reset_channels") and global_position.distance_to(mech.global_position) < 12.0:
+			mech.call("reset_channels")
+
+
 func _interactable() -> Node:
-	if not _ray.is_colliding():
+	if _ray == null:
 		return null
-	var node := _climb(_ray.get_collider() as Node)
-	if node == null:
-		return null
-	if not node.has_method("get_interact_label"):
-		return null
-	var label := str(node.call("get_interact_label"))
-	if label.strip_edges() == "":
-		return null
-	return node
+	_ray.collide_with_areas = true
+	_ray.collide_with_bodies = true
+	_ray.collision_mask = 8
+	_ray.force_raycast_update()
+	if _ray.is_colliding():
+		var n := _climb(_ray.get_collider() as Node)
+		if n:
+			return n
+	_ray.collision_mask = 13
+	_ray.force_raycast_update()
+	if _ray.is_colliding():
+		var n := _climb(_ray.get_collider() as Node)
+		if n:
+			return n
+	return _nearest_machine()
+
+
+func _nearest_machine() -> Node:
+	var best: Node = null
+	var best_d := 4.5
+	var facing := -_camera.global_transform.basis.z
+	for mech in get_tree().get_nodes_in_group("machine"):
+		if mech is Node3D:
+			var offset: Vector3 = (mech as Node3D).global_position + Vector3(0, 2, 0) - _camera.global_position
+			var d := offset.length()
+			if d < best_d and facing.dot(offset.normalized()) > 0.35:
+				best_d = d
+				best = mech
+	if best and best.has_method("get_interact_label") and str(best.call("get_interact_label")) != "":
+		return best
+	return null
 
 
 func _climb(node: Node) -> Node:
 	var cur := node
 	while cur:
 		if cur.has_method("interact") and cur.has_method("get_interact_label"):
-			return cur
+			var label := str(cur.call("get_interact_label"))
+			if label.strip_edges() != "":
+				return cur
 		cur = cur.get_parent()
 	return null
 
@@ -166,7 +216,7 @@ func _climb(node: Node) -> Node:
 func _try_board_nearby() -> void:
 	for mech in get_tree().get_nodes_in_group("machine"):
 		if mech.is_in_group("machine") and global_position.distance_to(mech.global_position) < 9.0:
-			if not bool(mech.get("hangar_preview")) and not bool(mech.get("disabled")):
+			if not bool(mech.get("hangar_preview")) and not bool(mech.get("disabled")) and bool(mech.get("alive")):
 				mech.call("board_pilot", self)
 				return
 
@@ -192,9 +242,17 @@ func _scav_fire() -> void:
 	Fx.play("vulcan")
 	var from := _camera.global_position
 	var to := from + (-_camera.global_transform.basis.z) * 40.0
+	if NetSession.is_online() and not NetSession.is_host():
+		Fx.spawn_tracer(from + (-_camera.global_transform.basis.z) * 0.8, to, Color(0.9, 0.85, 0.5))
+		_rpc_scav_shot.rpc_id(1, from, to)
+		return
+	_scav_hitscan(from, to)
+
+
+func _scav_hitscan(from: Vector3, to: Vector3) -> void:
 	var query := PhysicsRayQueryParameters3D.create(from, to)
 	query.exclude = [get_rid()]
-	query.collision_mask = 5
+	query.collision_mask = 7
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	var end := to
 	if hit:
@@ -207,6 +265,13 @@ func _scav_fire() -> void:
 			elif n.has_method("take_damage"):
 				n.call("take_damage", 8.0)
 	Fx.spawn_tracer(from + (-_camera.global_transform.basis.z) * 0.8, end, Color(0.9, 0.85, 0.5))
+
+
+@rpc("any_peer", "reliable")
+func _rpc_scav_shot(from: Vector3, to: Vector3) -> void:
+	if not NetSession.is_host():
+		return
+	_scav_hitscan(from, to)
 
 
 func take_damage(amount: float) -> void:

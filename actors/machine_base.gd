@@ -6,14 +6,15 @@ signal component_dropped(part: Dictionary, world_pos: Vector3)
 
 const TURN_SENS := 0.0021
 const HEAT_MAX := 100.0
+const SELF_VISUAL_LAYER := 10
 
 @export var scale_id: String = "light"
 @export var hangar_preview: bool = false
 @export var power_armor: bool = false
 @export var ai_controlled: bool = false
 @export var disabled: bool = false
-@export var cockpit_height: float = 6.4
-@export var cockpit_forward: float = 0.55
+@export var cockpit_height: float = 7.4
+@export var cockpit_forward: float = 1.6
 @export var move_speed: float = 9.0
 @export var hull_max: float = 160.0
 
@@ -21,6 +22,7 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var boarded: bool = false
 var hull: float = 160.0
 var heat: float = 0.0
+var shield_hp: float = 0.0
 var _pilot: Node
 var _pitch: float = 0.0
 var _fire_cd: float = 0.0
@@ -34,6 +36,8 @@ var section_hp: Dictionary = {}
 var alive: bool = true
 var towing: Node3D
 var _ai_fire: float = 0.0
+var core_taken: bool = false
+var _base_hull: float = 160.0
 
 var _camera: Camera3D
 var _ray: RayCast3D
@@ -48,6 +52,7 @@ func _ready() -> void:
 		add_to_group("power_armor")
 	collision_layer = 4
 	collision_mask = 5
+	_base_hull = hull_max
 	hull = hull_max
 	_ensure_cockpit()
 	_ensure_hardpoints()
@@ -71,17 +76,18 @@ func _ensure_cockpit() -> void:
 		_camera = Camera3D.new()
 		_camera.name = "CockpitCamera"
 		_cockpit.add_child(_camera)
-		_camera.fov = 72.0
-		_camera.near = 0.08
+	_camera.fov = 72.0
+	_camera.near = 0.05
 	_camera.current = false
+	_camera.cull_mask = 1048575 & ~(1 << (SELF_VISUAL_LAYER - 1))
 	_ray = get_node_or_null("Cockpit/CockpitCamera/InteractRay") as RayCast3D
 	if _ray == null:
 		_ray = RayCast3D.new()
 		_ray.name = "InteractRay"
 		_camera.add_child(_ray)
-		_ray.target_position = Vector3(0, 0, -14.0)
-		_ray.collision_mask = 13
-		_ray.collide_with_areas = true
+	_ray.target_position = Vector3(0, 0, -14.0)
+	_ray.collision_mask = 13
+	_ray.collide_with_areas = true
 	_dismount = get_node_or_null("DismountPoint") as Marker3D
 	if _dismount == null:
 		_dismount = Marker3D.new()
@@ -97,13 +103,13 @@ func _ensure_hardpoints() -> void:
 		root.name = "Hardpoints"
 		add_child(root)
 	var offsets := {
-		"chest": Vector3(0, cockpit_height * 0.85, 1.2),
-		"arm_l": Vector3(-2.2, cockpit_height * 0.82, 0.2),
-		"arm_r": Vector3(2.2, cockpit_height * 0.82, 0.2),
-		"legs": Vector3(0, cockpit_height * 0.32, 0.7),
-		"reactor": Vector3(0, cockpit_height * 0.82, -1.3),
-		"sensors": Vector3(0, cockpit_height * 1.08, 0.6),
-		"utility": Vector3(0, cockpit_height * 0.55, -0.8),
+		"chest": Vector3(0, cockpit_height * 0.75, 1.2),
+		"arm_l": Vector3(-2.2, cockpit_height * 0.72, 0.2),
+		"arm_r": Vector3(2.2, cockpit_height * 0.72, 0.2),
+		"legs": Vector3(0, cockpit_height * 0.28, 0.7),
+		"reactor": Vector3(0, cockpit_height * 0.72, -1.3),
+		"sensors": Vector3(0, cockpit_height * 0.95, 0.6),
+		"utility": Vector3(0, cockpit_height * 0.48, -0.8),
 	}
 	for slot in RunState.SLOTS:
 		if root.get_node_or_null(slot) == null:
@@ -114,18 +120,6 @@ func _ensure_hardpoints() -> void:
 			mi.mesh = box
 			mi.position = offsets.get(slot, Vector3.ZERO)
 			root.add_child(mi)
-		var spot_name := "Slot_%s" % slot
-		if get_node_or_null(spot_name) == null:
-			var spot: Area3D = load("res://actors/slot_hotspot.gd").new()
-			spot.name = spot_name
-			spot.set("slot", slot)
-			var col := CollisionShape3D.new()
-			var sh := BoxShape3D.new()
-			sh.size = Vector3(1.6, 1.1, 1.1)
-			col.shape = sh
-			spot.add_child(col)
-			add_child(spot)
-			spot.position = offsets.get(slot, Vector3.ZERO)
 
 
 func _init_sections() -> void:
@@ -160,15 +154,27 @@ func seed_wreck_parts(ids: Array) -> void:
 		if part.is_empty():
 			continue
 		var slot := str(part.get("slot", "chest"))
+		var current: Variant = equipped.get(slot, {})
+		if current is Dictionary and not (current as Dictionary).is_empty():
+			continue
 		equipped[slot] = part
 	disabled = true
 	ai_controlled = false
+	alive = false
 	apply_loadout()
 
 
 func apply_loadout() -> void:
 	if equipped.is_empty():
 		_copy_hangar_loadout()
+	hull_max = _base_hull + _plating_bonus()
+	if hangar_preview:
+		hull = hull_max
+	else:
+		hull = minf(hull, hull_max)
+	var sm := _shield_max()
+	if shield_hp <= 0.0 or shield_hp > sm:
+		shield_hp = sm
 	var paint := RunState.paint_color()
 	for slot in RunState.SLOTS:
 		var node := get_node_or_null("Hardpoints/" + slot)
@@ -189,10 +195,44 @@ func apply_loadout() -> void:
 			if hangar_preview:
 				_tint(mesh, Color(0.25, 0.85, 1.0, 0.4), true)
 	for child in get_children():
-		if child is MeshInstance3D and str(child.name) in ["Torso", "Head", "ArmL", "ArmR", "LegL", "LegR", "Cab"]:
+		if child is MeshInstance3D and str(child.name) in ["Torso", "Head", "ArmL", "ArmR", "LegL", "LegR", "Cab", "Bed"]:
 			if hangar_preview or boarded or not disabled:
 				_tint(child, paint.darkened(0.08), false)
-	_configure_hotspots()
+		if child.name == "Body":
+			for sub in child.get_children():
+				if sub is MeshInstance3D and str(sub.name) in ["Torso", "Head", "ArmL", "ArmR"]:
+					_tint(sub, paint.darkened(0.08), false)
+
+
+func _plating_bonus() -> float:
+	var bonus := 0.0
+	for slot in RunState.SLOTS:
+		var part: Variant = equipped.get(slot, {})
+		if part is Dictionary:
+			var id := str(part.get("id", ""))
+			if id == "armor_plate" or id == "heavy_plating":
+				bonus += float(part.get("durability", 80.0)) * float(part.get("condition", 1.0)) * 0.45
+	return bonus
+
+
+func _shield_max() -> float:
+	var util: Variant = equipped.get("utility", {})
+	if util is Dictionary and str(util.get("id", "")) == "shield_emitter" and float(section_hp.get("utility", 1.0)) > 0.0:
+		if _power_ok(util):
+			return 90.0 * float(util.get("condition", 1.0))
+	return 0.0
+
+
+func has_sensors() -> bool:
+	var s: Variant = equipped.get("sensors", {})
+	return s is Dictionary and str(s.get("id", "")) == "sensor_suite" and float(section_hp.get("sensors", 1.0)) > 0.0
+
+
+func best_weapon_name() -> String:
+	var w := RunState.best_weapon(scale_id, equipped)
+	if w.is_empty():
+		return ""
+	return str(w.get("display_name", ""))
 
 
 func _tint(mesh: MeshInstance3D, color: Color, translucent: bool) -> void:
@@ -212,22 +252,14 @@ func _tint(mesh: MeshInstance3D, color: Color, translucent: bool) -> void:
 	mesh.material_override = mat
 
 
-func _configure_hotspots() -> void:
-	for child in get_children():
-		if child.has_method("configure"):
-			child.configure(hangar_preview, disabled or hangar_preview or boarded)
-
-
 func get_interact_label() -> String:
 	if hangar_preview:
 		return "Workshop  %s  [E]" % scale_id.to_upper()
 	if boarded:
 		return ""
-	if disabled:
-		return "Disabled %s  [E] strip / field-bolt   [G] hotwire" % scale_id
-	if not boarded:
-		return "Board %s cockpit  [E] / [F]" % scale_id
-	return ""
+	if disabled or not alive:
+		return "Wrecked %s  [E] strip / bolt / hack   [G] hold hotwire" % scale_id
+	return "%s  [E] workbench   [F] board cockpit" % scale_id
 
 
 func interact(actor: Node) -> void:
@@ -235,10 +267,7 @@ func interact(actor: Node) -> void:
 		Hud.open_workshop(scale_id)
 		return
 	if actor is Scavenger:
-		if disabled:
-			Hud.show_banner("Look at a glowing hardpoint to strip or bolt.  [G] hotwire.")
-			return
-		board_pilot(actor)
+		Hud.open_machine_bay(self)
 
 
 func board_pilot(scav: Node) -> void:
@@ -246,7 +275,7 @@ func board_pilot(scav: Node) -> void:
 		return
 	if scav is Scavenger and (scav as Scavenger).boarded:
 		return
-	if disabled:
+	if disabled or not alive:
 		return
 	boarded = true
 	ai_controlled = false
@@ -254,19 +283,21 @@ func board_pilot(scav: Node) -> void:
 	if scav is Scavenger:
 		(scav as Scavenger).set_boarded(true)
 	add_to_group("player")
+	_set_self_hidden(true)
 	if _camera:
 		_camera.current = true
 	Hud.set_prompt("COCKPIT  LMB fire   [F] dismount   WASD   mouse look")
+	Hud.set_health(hull)
 	Fx.play("ui")
 
 
-func begin_hotwire(scav: Node) -> void:
-	if not disabled or boarded:
+func hold_hotwire(scav: Node, delta: float) -> void:
+	if boarded or not (disabled or not alive):
 		return
-	_hotwire += 0.34 + RunState.repair_skill * 0.2
+	_hotwire += delta * (0.22 + RunState.repair_skill * 0.18)
 	Fx.play("hack")
 	Hud.set_extract(_hotwire)
-	Hud.set_prompt("Hotwiring…  %.0f%%" % (_hotwire * 100.0))
+	Hud.set_prompt("Hotwiring…  %.0f%%  stay exposed" % (_hotwire * 100.0))
 	if _hotwire >= 1.0:
 		_hotwire = 0.0
 		Hud.set_extract(-1.0)
@@ -284,10 +315,63 @@ func begin_hotwire(scav: Node) -> void:
 			get_tree().call_group("heavy_mech", "alert_to", global_position)
 
 
+func reset_channels() -> void:
+	if _hotwire > 0.0 and _hotwire < 1.0:
+		_hotwire = maxf(_hotwire - 0.35, 0.0)
+		if _hotwire <= 0.0:
+			Hud.set_extract(-1.0)
+	if _hack > 0.0 and _hack < 1.0:
+		_hack = maxf(_hack - 0.35, 0.0)
+	if _pry > 0.0 and _pry < 1.0:
+		_pry = maxf(_pry - 0.35, 0.0)
+
+
+func hold_hack_core(scav: Node, delta: float) -> bool:
+	if core_taken:
+		return false
+	_hack += delta * 0.28
+	Fx.play("hack")
+	Hud.set_extract(_hack)
+	Hud.set_prompt("Decrypting core… don't get shot  %.0f%%" % (_hack * 100.0))
+	get_tree().call_group("heavy_mech", "alert_to", global_position)
+	if _hack >= 1.0:
+		_hack = 0.0
+		core_taken = true
+		Hud.set_extract(-1.0)
+		var part := RunState.make_part("data_core", 0.9)
+		if scav is Scavenger:
+			if RunState.add_carry(part, true):
+				Hud.refresh_carry()
+				Hud.show_banner("Data core in secure slot.")
+			elif RunState.add_carry(part):
+				Hud.refresh_carry()
+				Hud.show_banner("Data core — extract it or die trying.")
+		return true
+	return false
+
+
+func hold_pry(scav: Node, delta: float) -> void:
+	if scale_id != "heavy":
+		return
+	_pry += delta * 0.32
+	Hud.set_extract(_pry)
+	Hud.set_prompt("Prying armor… stay on the calf  %.0f%%" % (_pry * 100.0))
+	if _pry >= 1.0:
+		_pry = 0.0
+		Hud.set_extract(-1.0)
+		var part := RunState.make_part("heavy_plating", randf_range(0.3, 0.7))
+		if scav is Scavenger and RunState.add_carry(part):
+			Hud.refresh_carry()
+			Hud.show_banner("Plate ripped from the heavy.")
+			take_section_damage(40.0, global_position + Vector3(0, 2, 0))
+		alert_to(global_position)
+
+
 func dismount() -> void:
 	if not boarded:
 		return
 	boarded = false
+	_set_self_hidden(false)
 	if _camera:
 		_camera.current = false
 	remove_from_group("player")
@@ -298,10 +382,26 @@ func dismount() -> void:
 		scav.set_boarded(false)
 	_pilot = null
 	Hud.set_prompt("")
+	Hud.set_heat(-1.0)
+	Hud.set_sensors("")
+
+
+func _set_self_hidden(hide: bool) -> void:
+	var bit := 1 << (SELF_VISUAL_LAYER - 1)
+	_hide_meshes(self, hide, bit)
+
+
+func _hide_meshes(n: Node, hide: bool, bit: int) -> void:
+	if n is MeshInstance3D:
+		(n as MeshInstance3D).layers = bit if hide else 1
+	for c in n.get_children():
+		_hide_meshes(c, hide, bit)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not boarded or Hud.ui_busy:
+		return
+	if not _local_pilot():
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * TURN_SENS * (0.55 if scale_id == "heavy" else 1.0))
@@ -315,18 +415,31 @@ func _unhandled_input(event: InputEvent) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+func _local_pilot() -> bool:
+	if not NetSession.is_online():
+		return true
+	if _pilot is Scavenger:
+		return (_pilot as Scavenger)._local()
+	return NetSession.is_host()
+
+
 func _physics_process(delta: float) -> void:
-	if not alive:
+	if not alive and not boarded:
+		if hangar_preview:
+			velocity = Vector3.ZERO
 		return
 	_fire_cd = maxf(_fire_cd - delta, 0.0)
 	heat = maxf(heat - _cool_rate() * delta, 0.0)
+	var sm := _shield_max()
+	if sm > 0.0 and heat < 70.0:
+		shield_hp = minf(shield_hp + 10.0 * delta, sm)
 	if hangar_preview:
 		velocity = Vector3.ZERO
 		return
 	if boarded:
 		_pilot_move(delta)
 		return
-	if ai_controlled:
+	if ai_controlled and alive:
 		_ai_move(delta)
 		return
 	if not is_on_floor():
@@ -344,7 +457,7 @@ func _pilot_move(delta: float) -> void:
 		velocity.y = 7.5 if scale_id != "heavy" else 4.2
 		heat += 18.0 * delta
 	var input_dir := Vector2.ZERO
-	if not Hud.ui_busy:
+	if not Hud.ui_busy and _local_pilot():
 		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 	var speed := _current_speed()
@@ -358,12 +471,12 @@ func _pilot_move(delta: float) -> void:
 	if towing and is_instance_valid(towing):
 		towing.global_position = global_position + -transform.basis.z * -8.0 + Vector3(0, 0.4, 0)
 	var in_extract := _inside_extract()
-	if Input.is_action_just_pressed("board") or (Input.is_action_just_pressed("interact") and not in_extract):
+	if _local_pilot() and (Input.is_action_just_pressed("board") or (Input.is_action_just_pressed("interact") and not in_extract)):
 		dismount()
 		return
-	if Input.is_action_pressed("fire") and not Hud.ui_busy:
+	if _local_pilot() and Input.is_action_pressed("fire") and not Hud.ui_busy:
 		_try_fire()
-	if scale_id == "vehicle" and Input.is_action_just_pressed("hotwire"):
+	if scale_id == "vehicle" and _local_pilot() and Input.is_action_just_pressed("hotwire"):
 		_try_tow()
 	_update_cockpit_hud()
 
@@ -431,6 +544,14 @@ func _try_fire() -> void:
 	var from := _camera.global_position
 	var reach := 18.0 if kind == "melee" else 140.0
 	var to := from + (-_camera.global_transform.basis.z) * reach
+	if NetSession.is_online() and not NetSession.is_host():
+		Fx.spawn_tracer(from + (-_camera.global_transform.basis.z) * 1.4, to, _tracer_color(kind))
+		_rpc_shot.rpc_id(1, from, to, dmg, kind)
+		return
+	_hitscan(from, to, dmg, kind)
+
+
+func _hitscan(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
 	var query := PhysicsRayQueryParameters3D.create(from, to)
 	query.exclude = [get_rid()]
 	query.collision_mask = 7
@@ -442,8 +563,6 @@ func _try_fire() -> void:
 		if col is Node:
 			_apply_hit(col as Node, dmg, hit.position)
 	Fx.spawn_tracer(from + (-_camera.global_transform.basis.z) * 1.4, end, _tracer_color(kind))
-	if not NetSession.is_host():
-		_rpc_shot.rpc_id(1, from, end, dmg, kind)
 
 
 func _tracer_color(kind: String) -> Color:
@@ -476,7 +595,7 @@ func _rpc_shot(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
 		return
 	if dmg < 0.0 or dmg > 400.0:
 		return
-	Fx.spawn_tracer(from, to, _tracer_color(kind))
+	_hitscan(from, to, dmg, kind)
 
 
 func take_section_damage(amount: float, point: Vector3) -> void:
@@ -513,8 +632,16 @@ func _break_section(slot: String) -> void:
 
 
 func take_damage(amount: float) -> void:
-	if not alive or hangar_preview:
+	if hangar_preview:
 		return
+	if not alive and not boarded:
+		return
+	var sm := _shield_max()
+	if sm > 0.0 and shield_hp > 0.0:
+		var soak := minf(amount * 0.55, shield_hp)
+		shield_hp -= soak
+		amount -= soak
+		heat = minf(heat + soak * 0.12, HEAT_MAX)
 	hull -= amount
 	if boarded:
 		Hud.set_health(hull)
@@ -598,18 +725,7 @@ func _ai_target() -> Vector3:
 func _ai_shoot(target: Vector3) -> void:
 	var from := global_position + Vector3(0, cockpit_height, 0)
 	var to := target + Vector3(0, 1.2, 0)
-	var query := PhysicsRayQueryParameters3D.create(from, to)
-	query.exclude = [get_rid()]
-	query.collision_mask = 7
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	Fx.play("vulcan")
-	var end := to
-	if hit:
-		end = hit.position
-		var col: Object = hit.collider
-		if col is Node:
-			_apply_hit(col as Node, 18.0 if scale_id != "heavy" else 34.0, hit.position)
-	Fx.spawn_tracer(from, end, Color(1.0, 0.45, 0.12))
+	_hitscan(from, to, 18.0 if scale_id != "heavy" else 34.0, "ballistic")
 
 
 func alert_to(pos: Vector3) -> void:
@@ -648,7 +764,26 @@ func _update_cockpit_hud() -> void:
 	Hud.set_health(hull)
 	var weapon := RunState.best_weapon(scale_id, equipped)
 	var wname := "NO GUN" if weapon.is_empty() else str(weapon.get("display_name", "GUN"))
-	Hud.set_prompt("%s  %s   HEAT %.0f  WT %.0f   [F] dismount" % [scale_id.to_upper(), wname, heat, w])
+	var sh := ""
+	if _shield_max() > 0.0:
+		sh = "  SHD %d" % int(shield_hp)
+	Hud.set_prompt("%s  %s   HEAT %.0f  WT %.0f%s   [F] dismount" % [scale_id.to_upper(), wname, heat, w, sh])
+	if has_sensors():
+		Hud.set_sensors(_sensor_text())
+	else:
+		Hud.set_sensors("")
+
+
+func _sensor_text() -> String:
+	var bits: PackedStringArray = PackedStringArray()
+	for zone in get_tree().get_nodes_in_group("extract_zone"):
+		if zone is Node3D:
+			var d := global_position.distance_to((zone as Node3D).global_position)
+			bits.append("%s %.0fm" % [str(zone.get("extract_type")).to_upper(), d])
+	for n in get_tree().get_nodes_in_group("heavy_mech"):
+		if n is Node3D and n != self:
+			bits.append("HEAVY %.0fm" % global_position.distance_to((n as Node3D).global_position))
+	return "SENS  " + "  |  ".join(bits)
 
 
 func field_install(part: Dictionary) -> bool:
@@ -680,11 +815,15 @@ func field_strip(slot: String) -> Dictionary:
 
 
 func has_payload() -> bool:
-	for slot in RunState.SLOTS:
-		var part: Variant = equipped.get(slot, {})
-		if part is Dictionary and bool(part.get("is_payload", false)):
-			return true
+	if not core_taken:
+		for slot in RunState.SLOTS:
+			var part: Variant = equipped.get(slot, {})
+			if part is Dictionary and bool(part.get("is_payload", false)):
+				return true
 	for p in RunState.raid_carry:
+		if bool(p.get("is_payload", false)):
+			return true
+	for p in RunState.secure_carry:
 		if bool(p.get("is_payload", false)):
 			return true
 	return false

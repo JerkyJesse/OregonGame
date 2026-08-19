@@ -23,20 +23,8 @@ func get_interact_label() -> String:
 func interact(actor: Node) -> void:
 	if taken:
 		return
-	_progress += 0.22
-	Fx.play("hack")
-	Hud.set_extract(_progress)
-	Hud.set_prompt("Decrypting core… don't get shot")
-	get_tree().call_group("heavy_mech", "alert_to", global_position)
-	if _progress >= 1.0:
-		taken = true
-		Hud.set_extract(-1.0)
-		var part := RunState.make_part("data_core", 0.9)
-		if actor is Scavenger:
-			if RunState.add_carry(part, true):
-				Hud.refresh_carry()
-				Hud.show_banner("Data core in secure slot.")
-			elif RunState.add_carry(part):
-				Hud.refresh_carry()
-				Hud.show_banner("Data core — extract it or die trying.")
-		visible = false
+	# Tap still nudges; hold is handled by looking + E in the machine bay / hold_hack_core.
+	if actor is Scavenger:
+		var mech := get_parent()
+		if mech and mech.has_method("hold_hack_core"):
+			mech.call("hold_hack_core", actor, 0.22)

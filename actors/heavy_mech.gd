@@ -7,8 +7,8 @@ class_name HeavyMech
 
 func _ready() -> void:
 	scale_id = "heavy"
-	cockpit_height = 15.6
-	cockpit_forward = 1.4
+	cockpit_height = 17.55
+	cockpit_forward = 4.5
 	move_speed = 4.4
 	hull_max = RunState.cap("heavy", "hull")
 	hull = hull_max
@@ -20,8 +20,11 @@ func _ready() -> void:
 		ai_controlled = true
 
 
-func set_patrol(points: Array[Vector3]) -> void:
-	patrol = points
+func set_patrol(points: Array) -> void:
+	patrol.clear()
+	for p in points:
+		if p is Vector3:
+			patrol.append(p)
 
 
 func _physics_process(delta: float) -> void:
@@ -40,16 +43,4 @@ func _on_stomp_body_entered(body: Node) -> void:
 
 
 func pry_plate(scav: Node) -> void:
-	if not alive:
-		return
-	_pry += 0.28
-	Hud.set_extract(_pry)
-	Hud.set_prompt("Prying armor… stay on the calf")
-	if _pry >= 1.0:
-		_pry = 0.0
-		Hud.set_extract(-1.0)
-		var part := RunState.make_part("heavy_plating", randf_range(0.3, 0.7))
-		if scav is Scavenger and RunState.add_carry(part):
-			Hud.refresh_carry()
-			Hud.show_banner("Plate ripped from the heavy.")
-			take_section_damage(40.0, global_position + Vector3(0, 2, 0))
+	hold_pry(scav, 0.28)
