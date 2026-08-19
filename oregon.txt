@@ -1,0 +1,28 @@
+Prompt for building the game:Create a multiplayer extraction shooter called "Oregon" (or working title: Mech Extraction / Scav Mech) that blends the deep, high-stakes looting and raid structure of Escape from Tarkov with large-scale MechWarrior / Armored Core style combat and customization. The core fantasy is a full-scale mech extraction shooter where players scavenge parts from destroyed machines, build and upgrade their own mechs (and power armor), and operate across multiple scales of play that all interconnect.Core Fantasy & SettingIn a corporate-capitalist industrial nightmare / post-apocalyptic intercontinental conflict, the air is toxic and the only way to move safely or fight effectively is inside machines. Factions clash over scarce resources, data, encrypted “bitcoin-style” payloads carried inside mechs, or a valuable space-fuel resource. Mechs range from light scavenger frames to heavy multi-story machines capable of stepping on houses. Players must extract with scavenged parts, data, and supplies to improve their machines and return stronger. The world supports both live combat raids and post-battle scavenging runs.Core Gameplay LoopDeploy into a large open or semi-open raid map in one of several scales/roles.
+Fight, scavenge, or opportunistically loot during or after battles.
+Extract with valuable mech parts, weapons, components, data cores, and resources.
+Return to a personal hangar / workshop to repair, customize, upgrade, and reconfigure your mechs and gear.
+Use better machines and loadouts to take bigger risks for better rewards.
+Multiple intertwined game modes and scales force players to engage with different playstyles (pure scavenger, light mech, heavy mech, vehicle support, etc.).
+
+Player Scales & Roles (all playable and interconnected)Pure human / scavenger – Tiny, fragile, highly mobile. Can hide in debris, crawl through wreckage, hijack disabled mechs, pick wires/components from fallen machines, and extract with small but high-value parts. Extremely high risk of being crushed or vaporized.
+Light / scav mech or power armor – Fast, agile personal frames for mid-scale scavenging and skirmishing.
+Medium / standard battle mechs – Classic MechWarrior / Armored Core size with heavy customization.
+Heavy / large mechs – Multi-story machines that require more resources (and potentially squad coordination) to operate effectively. Harder to control but devastating.
+Support vehicles / road vehicles – For logistics, recovery, or mobile workshops.
+
+Players can dismount from mechs (like getting out of a car in Driver 2), fight on foot, re-board, or attempt to seize abandoned/disabled machines. After a major engagement ends, scavenger players (or late joiners) can drop into the same map to loot the battlefield under higher risk.Key SystemsDeep modular customization: Every major component is scavengable and swappable (weapons, armor plating, actuators, reactors, sensors, knee-mounted vulcans, etc.). Players can strip a destroyed mech and bolt its twin vulcan cannons onto their own chest. Progression is driven by acquiring, repairing, and combining parts rather than pure XP.
+Loot & extraction economy: Parts have condition, rarity, and compatibility. Data cores or encrypted payloads require penetration/hacking of specific mech sections. Resource scarcity creates the need to return to raids repeatedly.
+Raid structure flexibility: No rigid single “raid” template. Support simultaneous combat raids, post-battle scavenging waves, opportunistic late joins, and different map scales. Factions influence available loadouts, spawn points, and objectives.
+Hangar / progression hub: Persistent personal workshop where players assemble, paint, and test mechs. Space and layout scale with wealth (from small garage to large industrial bay).
+Risk/reward across scales: Bigger mechs bring more firepower and carrying capacity but are harder to hide, costlier to lose, and more attractive targets. Pure scavengers can steal high-value components mid-fight if they survive.
+
+Tone, Depth & Design PillarsHigh mechanical depth and customization comparable to Tarkov’s gear systems, but applied to mechs and multi-scale play.
+Entertaining asymmetry: a lone scavenger sprinting between falling metal limbs while larger mechs trade fire overhead should feel thrilling and viable.
+Strong immersion without needing perfect human animation realism (robots and machines forgive more abstraction).
+Support for future VR / cockpit simulation (including the joke potential of improvised physical cockpits).
+Monetization primarily through cosmetics that work across every scale of playable character/mech.
+Avoid over-scoping into unfinishable simulation; prioritize solid core loops, readable combat, and satisfying part-hunting over pure graphical fidelity or endless feature creep.
+
+Technical & Scope Notes for ImplementationDesign the systems so the different scales naturally feed each other (scavenging feeds building, building enables better combat, combat creates new scavenging opportunities). Emphasize modular mech construction, destructible components that can be looted, and clear extraction tension. Lore can be kept flexible and light so it supports the mechanics rather than constraining them.Build this as a deep, replayable multiplayer extraction experience centered on the joy of scavenging a battlefield of giant machines, piecing together your own war machine from the wreckage, and returning to do it all again at whatever scale you choose.
+
