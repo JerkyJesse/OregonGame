@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://data/part_data.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+id = "knee_vulcan"
+display_name = "Knee Vulcan"
+slot = "legs"
+condition = 1.0
+rarity = "uncommon"
+scales = PackedStringArray("light", "medium", "heavy")
+weight = 6
+volume = 1.2
+heat_gen = 8
+power_draw = 4
+power_output = 0
+durability = 60
+damage = 18
+value = 70
+is_weapon = true
+weapon_kind = "ballistic"
+faction_tag = "remnant"
+albedo = Color(0.78, 0.32, 0.12, 1)
+is_payload = false

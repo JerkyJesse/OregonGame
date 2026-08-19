@@ -1,0 +1,47 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://actors/hauler.gd" id="1_haul"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_cab"]
+albedo_color = Color(0.38, 0.28, 0.12, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_bed"]
+albedo_color = Color(0.18, 0.18, 0.16, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_unit"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape_body"]
+size = Vector3(3.4, 3.2, 8.5)
+
+[node name="Hauler" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 5
+script = ExtResource("1_haul")
+
+[node name="Cab" type="MeshInstance3D" parent="."]
+transform = Transform3D(3.0, 0, 0, 0, 2.4, 0, 0, 0, 2.4, 0, 1.6, 2.6)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_cab")
+
+[node name="Bed" type="MeshInstance3D" parent="."]
+transform = Transform3D(3.2, 0, 0, 0, 1.4, 0, 0, 0, 5.2, 0, 1.1, -1.6)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_bed")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape_body")
+
+[node name="Hardpoints" type="Node3D" parent="."]
+
+[node name="Cockpit" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 3.1)
+
+[node name="CockpitCamera" type="Camera3D" parent="Cockpit"]
+fov = 75.0
+near = 0.08
+current = false
+
+[node name="DismountPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.8, 0, 2.4)

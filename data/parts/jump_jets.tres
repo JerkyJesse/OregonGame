@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://data/part_data.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+id = "jump_jets"
+display_name = "Jump Jets"
+slot = "utility"
+condition = 1.0
+rarity = "rare"
+scales = PackedStringArray("light", "armor", "medium")
+weight = 5
+volume = 1.1
+heat_gen = 6
+power_draw = 7
+power_output = 0
+durability = 50
+damage = 0
+value = 130
+is_weapon = false
+weapon_kind = ""
+faction_tag = "warlord"
+albedo = Color(0.95, 0.55, 0.15, 1)
+is_payload = false

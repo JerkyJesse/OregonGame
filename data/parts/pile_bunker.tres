@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://data/part_data.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+id = "pile_bunker"
+display_name = "Pile Bunker"
+slot = "arm_r"
+condition = 1.0
+rarity = "uncommon"
+scales = PackedStringArray("light", "armor", "medium")
+weight = 7
+volume = 1.4
+heat_gen = 4
+power_draw = 3
+power_output = 0
+durability = 80
+damage = 42
+value = 85
+is_weapon = true
+weapon_kind = "melee"
+faction_tag = "scav"
+albedo = Color(0.7, 0.68, 0.55, 1)
+is_payload = false

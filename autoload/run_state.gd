@@ -1,0 +1,490 @@
+extends Node
+
+const SAVE_PATH := "user://run_state.json"
+const PART_DIR := "res://data/parts/"
+const SCHEMA := 2
+const SLOTS: Array[String] = ["chest", "arm_l", "arm_r", "legs", "reactor", "sensors", "utility"]
+const SCALES: Array[String] = ["light", "armor", "medium", "heavy", "vehicle"]
+const FACTIONS: Array[String] = ["corporate", "scav", "remnant", "warlord"]
+const PAINTS: Array[Color] = [
+	Color(0.52, 0.27, 0.12),
+	Color(0.18, 0.22, 0.28),
+	Color(0.22, 0.38, 0.28),
+	Color(0.55, 0.48, 0.22),
+	Color(0.12, 0.12, 0.14),
+	Color(0.62, 0.18, 0.12),
+]
+
+const SCALE_CAPS := {
+	"scavenger": {"weight": 18.0, "secure": 1, "speed": 1.0, "hull": 100.0},
+	"light": {"weight": 42.0, "secure": 2, "speed": 1.0, "hull": 160.0},
+	"armor": {"weight": 28.0, "secure": 2, "speed": 1.15, "hull": 130.0},
+	"medium": {"weight": 90.0, "secure": 3, "speed": 0.82, "hull": 280.0},
+	"heavy": {"weight": 180.0, "secure": 5, "speed": 0.55, "hull": 520.0},
+	"vehicle": {"weight": 140.0, "secure": 8, "speed": 1.05, "hull": 220.0},
+}
+
+var stash: Array[Dictionary] = []
+var loadouts: Dictionary = {}
+var credits: int = 120
+var hangar_tier: int = 1
+var repair_skill: float = 0.35
+var paint_index: int = 0
+var unlocked_scales: Array = ["light", "armor"]
+var last_message: String = ""
+var in_raid: bool = false
+var health: float = 100.0
+var raid_carry: Array[Dictionary] = []
+var secure_carry: Array[Dictionary] = []
+var raid_mode: String = "combat"
+var raid_map: String = "ash_yard"
+var faction: String = "scav"
+var deploy_scale: String = "scavenger"
+var raid_timer: float = 0.0
+var heavy_engaged: bool = false
+var extracted_value: int = 0
+
+
+func _ready() -> void:
+	_empty_loadouts()
+	if not load_state():
+		stash.clear()
+		stash.append(make_part("armor_plate", 1.0))
+		stash.append(make_part("actuator_leg", 0.9))
+		stash.append(make_part("vulcan_chest", 0.85))
+		stash.append(make_part("compact_reactor", 0.8))
+		stash.append(make_part("myomer_strand", 0.92))
+		credits = 120
+		save_state()
+
+
+func _empty_loadouts() -> void:
+	loadouts.clear()
+	for scale in SCALES:
+		var slots := {}
+		for slot in SLOTS:
+			slots[slot] = {}
+		loadouts[scale] = slots
+
+
+func make_part(id: String, condition: float = 1.0) -> Dictionary:
+	var path := "%s%s.tres" % [PART_DIR, id]
+	var res: Resource = load(path)
+	if res == null:
+		push_error("Unknown part id: %s" % id)
+		return {}
+	var d: Dictionary = res.to_dict()
+	d["condition"] = clampf(condition, 0.05, 1.0)
+	d["uid"] = "%s_%d_%d" % [id, Time.get_ticks_usec(), randi()]
+	return d
+
+
+func part_display_name(id: String) -> String:
+	var res: Resource = load("%s%s.tres" % [PART_DIR, id])
+	if res is PartData:
+		return (res as PartData).display_name
+	return id
+
+
+func catalog_ids() -> PackedStringArray:
+	return PackedStringArray([
+		"vulcan_chest", "knee_vulcan", "pulse_cannon", "missile_pod", "pile_bunker",
+		"armor_plate", "heavy_plating", "actuator_leg", "myomer_strand",
+		"reactor_core", "compact_reactor", "cooler_pack", "sensor_suite",
+		"jump_jets", "data_core", "shield_emitter",
+	])
+
+
+func get_equipped(slot: String, scale: String = "") -> Dictionary:
+	var s := scale if scale != "" else _active_scale()
+	var pack: Variant = loadouts.get(s, {})
+	if pack is Dictionary:
+		var part: Variant = (pack as Dictionary).get(slot, {})
+		if part is Dictionary:
+			return part
+	return {}
+
+
+func _active_scale() -> String:
+	if deploy_scale == "scavenger":
+		return "light"
+	return deploy_scale
+
+
+func has_weapon_equipped(scale: String = "") -> bool:
+	for slot in SLOTS:
+		var part := get_equipped(slot, scale)
+		if not part.is_empty() and bool(part.get("is_weapon", false)):
+			return true
+	return false
+
+
+func best_weapon(scale: String, equipped: Dictionary = {}) -> Dictionary:
+	var source: Dictionary = equipped
+	if source.is_empty():
+		var pack: Variant = loadouts.get(scale, {})
+		if pack is Dictionary:
+			source = pack
+	var best: Dictionary = {}
+	var dmg := -1.0
+	for slot in SLOTS:
+		var part: Variant = source.get(slot, {})
+		if part is Dictionary and bool(part.get("is_weapon", false)):
+			var c := float(part.get("condition", 1.0))
+			var v := float(part.get("damage", 10.0)) * lerpf(0.4, 1.0, c)
+			if v > dmg:
+				dmg = v
+				best = part
+	return best
+
+
+func stash_for_slot(slot: String, scale: String = "") -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var s := scale if scale != "" else _active_scale()
+	for part in stash:
+		if str(part.get("slot", "")) != slot:
+			continue
+		if scale_ok(part, s):
+			out.append(part)
+	return out
+
+
+func scale_ok(part: Dictionary, scale: String) -> bool:
+	var tags: Variant = part.get("scales", [])
+	if tags is PackedStringArray:
+		return (tags as PackedStringArray).has(scale) or (tags as PackedStringArray).is_empty()
+	if tags is Array:
+		return (tags as Array).has(scale) or (tags as Array).is_empty()
+	return true
+
+
+func find_stash_index(uid: String) -> int:
+	for i in stash.size():
+		if str(stash[i].get("uid", "")) == uid:
+			return i
+	return -1
+
+
+func equip_uid(uid: String, slot: String, scale: String = "") -> bool:
+	var s := scale if scale != "" else _active_scale()
+	var idx := find_stash_index(uid)
+	if idx < 0:
+		return false
+	var part: Dictionary = stash[idx]
+	if str(part.get("slot", "")) != slot or not scale_ok(part, s):
+		return false
+	unequip(slot, s, false)
+	stash.remove_at(idx)
+	loadouts[s][slot] = part
+	save_state()
+	get_tree().call_group("machine", "apply_loadout")
+	return true
+
+
+func unequip(slot: String, scale: String = "", persist: bool = true) -> void:
+	var s := scale if scale != "" else _active_scale()
+	var current := get_equipped(slot, s)
+	if not current.is_empty():
+		stash.append(current)
+		loadouts[s][slot] = {}
+	if persist:
+		save_state()
+		get_tree().call_group("machine", "apply_loadout")
+
+
+func loadout_weight(scale: String, equipped: Dictionary = {}) -> float:
+	var w := 0.0
+	var source: Dictionary = equipped
+	if source.is_empty():
+		var pack: Variant = loadouts.get(scale, {})
+		if pack is Dictionary:
+			source = pack
+	for slot in SLOTS:
+		var part: Variant = source.get(slot, {})
+		if part is Dictionary and not (part as Dictionary).is_empty():
+			w += float(part.get("weight", 0.0))
+	return w
+
+
+func cap(scale: String, key: String) -> float:
+	var row: Variant = SCALE_CAPS.get(scale, SCALE_CAPS["light"])
+	if row is Dictionary:
+		return float((row as Dictionary).get(key, 0.0))
+	return 0.0
+
+
+func stash_weight() -> float:
+	var w := 0.0
+	for part in stash:
+		w += float(part.get("weight", 0.0))
+	return w
+
+
+func stash_limit() -> float:
+	return 80.0 + float(hangar_tier) * 70.0
+
+
+func carry_weight() -> float:
+	var w := 0.0
+	for part in raid_carry:
+		w += float(part.get("weight", 0.0))
+	for part in secure_carry:
+		w += float(part.get("weight", 0.0))
+	return w
+
+
+func carry_limit() -> float:
+	return cap(deploy_scale, "weight") * 0.45 + 8.0
+
+
+func can_carry(part: Dictionary) -> bool:
+	return carry_weight() + float(part.get("weight", 0.0)) <= carry_limit() + 0.01
+
+
+func begin_raid() -> void:
+	in_raid = true
+	raid_carry.clear()
+	secure_carry.clear()
+	health = cap(deploy_scale if deploy_scale != "scavenger" else "scavenger", "hull")
+	if deploy_scale == "scavenger":
+		health = 100.0
+	raid_timer = 0.0
+	heavy_engaged = false
+	extracted_value = 0
+
+
+func add_carry(part: Dictionary, secure: bool = false) -> bool:
+	if part.is_empty():
+		return false
+	if not can_carry(part):
+		last_message = "Overweight — dump something or extract."
+		return false
+	if secure and secure_carry.size() < int(cap(deploy_scale, "secure")):
+		secure_carry.append(part)
+	else:
+		raid_carry.append(part)
+	return true
+
+
+func extract_to_hangar() -> void:
+	var n := raid_carry.size() + secure_carry.size()
+	var value := 0
+	for part in raid_carry:
+		stash.append(part)
+		value += int(part.get("value", 10))
+	for part in secure_carry:
+		stash.append(part)
+		value += int(part.get("value", 10))
+	credits += value
+	extracted_value = value
+	_unlock_from_wealth()
+	raid_carry.clear()
+	secure_carry.clear()
+	in_raid = false
+	health = 100.0
+	if n > 0:
+		last_message = "Extracted %d part%s  +%d cr." % [n, "" if n == 1 else "s", value]
+	else:
+		last_message = "Extracted empty-handed."
+	save_state()
+	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
+
+
+func fail_raid(reason: String, lose_machine: bool = false) -> void:
+	raid_carry.clear()
+	in_raid = false
+	health = 100.0
+	if lose_machine and deploy_scale in SCALES:
+		var s: String = deploy_scale
+		var pack: Variant = loadouts.get(s, {})
+		if pack is Dictionary:
+			for slot in SLOTS:
+				loadouts[s][slot] = {}
+		credits = maxi(credits - 80, 0)
+		reason += "  Frame write-off. Installed parts gone."
+	if not secure_carry.is_empty():
+		for part in secure_carry:
+			stash.append(part)
+		reason += "  Secure container recovered."
+	secure_carry.clear()
+	last_message = reason
+	save_state()
+	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
+
+
+func repair_part(uid: String) -> bool:
+	var idx := find_stash_index(uid)
+	var part: Dictionary = {}
+	if idx >= 0:
+		part = stash[idx]
+	else:
+		for scale in SCALES:
+			for slot in SLOTS:
+				var eq := get_equipped(slot, scale)
+				if str(eq.get("uid", "")) == uid:
+					part = eq
+	if part.is_empty():
+		return false
+	var cond := float(part.get("condition", 1.0))
+	if cond >= 0.99:
+		return false
+	var cost := maxi(int((1.0 - cond) * float(part.get("value", 40)) * 0.6), 8)
+	if credits < cost:
+		last_message = "Need %d cr to refurbish." % cost
+		return false
+	credits -= cost
+	var bump := 0.18 + repair_skill * 0.45
+	part["condition"] = clampf(cond + bump, 0.05, 1.0)
+	repair_skill = clampf(repair_skill + 0.012, 0.1, 0.95)
+	save_state()
+	get_tree().call_group("machine", "apply_loadout")
+	return true
+
+
+func paint_next() -> void:
+	paint_index = (paint_index + 1) % PAINTS.size()
+	save_state()
+	get_tree().call_group("machine", "apply_loadout")
+
+
+func paint_color() -> Color:
+	return PAINTS[paint_index % PAINTS.size()]
+
+
+func try_upgrade_hangar() -> bool:
+	var cost := hangar_tier * 400
+	if hangar_tier >= 3 or credits < cost:
+		return false
+	credits -= cost
+	hangar_tier += 1
+	if hangar_tier >= 2 and not unlocked_scales.has("medium"):
+		unlocked_scales.append("medium")
+		unlocked_scales.append("vehicle")
+	if hangar_tier >= 3 and not unlocked_scales.has("heavy"):
+		unlocked_scales.append("heavy")
+	save_state()
+	return true
+
+
+func _unlock_from_wealth() -> void:
+	if credits >= 250 and not unlocked_scales.has("medium"):
+		unlocked_scales.append("medium")
+		unlocked_scales.append("vehicle")
+	if credits >= 700 and not unlocked_scales.has("heavy"):
+		unlocked_scales.append("heavy")
+	if credits >= 400 and hangar_tier == 1:
+		pass
+
+
+func scale_unlocked(scale: String) -> bool:
+	if scale == "scavenger":
+		return true
+	return unlocked_scales.has(scale)
+
+
+func vendor_buy(id: String, cost: int) -> bool:
+	if credits < cost:
+		return false
+	var part := make_part(id, randf_range(0.45, 0.8))
+	if part.is_empty():
+		return false
+	if stash_weight() + float(part.get("weight", 0.0)) > stash_limit():
+		return false
+	credits -= cost
+	stash.append(part)
+	save_state()
+	return true
+
+
+func hotwire_chance() -> float:
+	return clampf(0.28 + repair_skill * 0.55, 0.15, 0.92)
+
+
+func save_state() -> void:
+	var payload := {
+		"schema": SCHEMA,
+		"stash": _dicts_to_untyped(stash),
+		"loadouts": loadouts.duplicate(true),
+		"credits": credits,
+		"hangar_tier": hangar_tier,
+		"repair_skill": repair_skill,
+		"paint_index": paint_index,
+		"unlocked_scales": unlocked_scales.duplicate(),
+		"faction": faction,
+		"deploy_scale": deploy_scale,
+		"raid_mode": raid_mode,
+		"raid_map": raid_map,
+	}
+	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file == null:
+		push_error("Could not write %s" % SAVE_PATH)
+		return
+	file.store_string(JSON.stringify(payload, "\t"))
+
+
+func load_state() -> bool:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return false
+	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file == null:
+		return false
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return false
+	var data: Dictionary = parsed
+	stash.clear()
+	for item in data.get("stash", []):
+		if item is Dictionary:
+			var normalized := _normalize_part(item)
+			if not normalized.is_empty():
+				stash.append(normalized)
+	_empty_loadouts()
+	if data.has("loadouts") and data["loadouts"] is Dictionary:
+		var saved: Dictionary = data["loadouts"]
+		for scale in SCALES:
+			var pack: Variant = saved.get(scale, {})
+			if pack is Dictionary:
+				for slot in SLOTS:
+					var part: Variant = (pack as Dictionary).get(slot, {})
+					if part is Dictionary:
+						loadouts[scale][slot] = _normalize_part(part)
+	elif data.has("loadout") and data["loadout"] is Dictionary:
+		var old: Dictionary = data["loadout"]
+		for slot in SLOTS:
+			var part: Variant = old.get(slot, {})
+			if part is Dictionary:
+				loadouts["light"][slot] = _normalize_part(part)
+	credits = int(data.get("credits", credits))
+	hangar_tier = clampi(int(data.get("hangar_tier", 1)), 1, 3)
+	repair_skill = float(data.get("repair_skill", repair_skill))
+	paint_index = int(data.get("paint_index", 0))
+	var un: Variant = data.get("unlocked_scales", unlocked_scales)
+	if un is Array:
+		unlocked_scales = (un as Array).duplicate()
+	faction = str(data.get("faction", faction))
+	deploy_scale = str(data.get("deploy_scale", deploy_scale))
+	raid_mode = str(data.get("raid_mode", raid_mode))
+	raid_map = str(data.get("raid_map", raid_map))
+	return true
+
+
+func _normalize_part(part: Dictionary) -> Dictionary:
+	if part.is_empty() or str(part.get("id", "")) == "":
+		return {}
+	var base := make_part(str(part["id"]), float(part.get("condition", 1.0)))
+	if base.is_empty():
+		return {}
+	if str(part.get("uid", "")) != "":
+		base["uid"] = str(part["uid"])
+	if part.has("display_name"):
+		base["display_name"] = str(part["display_name"])
+	if part.has("paint_id"):
+		base["paint_id"] = str(part["paint_id"])
+	return base
+
+
+func _dicts_to_untyped(parts: Array[Dictionary]) -> Array:
+	var out: Array = []
+	for part in parts:
+		out.append(part)
+	return out

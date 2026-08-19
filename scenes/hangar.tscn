@@ -1,0 +1,127 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/hangar.gd" id="1_hangar"]
+[ext_resource type="PackedScene" path="res://actors/scavenger.tscn" id="2_scav"]
+[ext_resource type="PackedScene" path="res://actors/light_mech.tscn" id="3_mech"]
+[ext_resource type="PackedScene" path="res://world/deploy_console.tscn" id="4_console"]
+
+[sub_resource type="Environment" id="Environment_hangar"]
+background_mode = 1
+background_color = Color(0.07, 0.08, 0.1, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.5, 0.46, 0.4, 1)
+ambient_light_energy = 0.5
+tonemap_mode = 3
+ssao_enabled = true
+glow_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="Mat_floor"]
+albedo_color = Color(0.2, 0.21, 0.22, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="Mat_wall"]
+albedo_color = Color(0.16, 0.17, 0.18, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_trim"]
+albedo_color = Color(0.55, 0.28, 0.1, 1)
+emission_enabled = true
+emission = Color(0.7, 0.32, 0.08, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="StandardMaterial3D" id="Mat_bay"]
+albedo_color = Color(0.12, 0.12, 0.13, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape_floor"]
+size = Vector3(42, 0.5, 34)
+
+[node name="Hangar" type="Node3D"]
+script = ExtResource("1_hangar")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_hangar")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.82, -0.4, 0.41, 0, 0.72, 0.7, -0.57, -0.57, 0.59, 8, 18, 10)
+light_color = Color(1, 0.91, 0.78, 1)
+light_energy = 1.15
+shadow_enabled = true
+
+[node name="BayLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0)
+light_color = Color(1, 0.72, 0.4, 1)
+light_energy = 6.0
+omni_range = 22.0
+shadow_enabled = true
+
+[node name="FillLight" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 6, 8)
+light_color = Color(0.55, 0.7, 0.9, 1)
+light_energy = 2.5
+omni_range = 16.0
+
+[node name="Floor" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+use_collision = true
+size = Vector3(42, 0.5, 34)
+material = SubResource("Mat_floor")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+shape = SubResource("BoxShape_floor")
+
+[node name="WallBack" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -17)
+use_collision = true
+size = Vector3(42, 10, 0.5)
+material = SubResource("Mat_wall")
+
+[node name="WallFront" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 17)
+use_collision = true
+size = Vector3(42, 10, 0.5)
+material = SubResource("Mat_wall")
+
+[node name="WallLeft" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21, 5, 0)
+use_collision = true
+size = Vector3(0.5, 10, 34)
+material = SubResource("Mat_wall")
+
+[node name="WallRight" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 5, 0)
+use_collision = true
+size = Vector3(0.5, 10, 34)
+material = SubResource("Mat_wall")
+
+[node name="Ceiling" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10.2, 0)
+use_collision = true
+size = Vector3(42, 0.4, 34)
+material = SubResource("Mat_bay")
+
+[node name="Trim" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.8, -16.6)
+size = Vector3(20, 0.2, 0.2)
+material = SubResource("Mat_trim")
+
+[node name="Catwalk" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 4.5, 0)
+use_collision = true
+size = Vector3(3.5, 0.25, 20)
+material = SubResource("Mat_bay")
+
+[node name="Props" type="Node3D" parent="."]
+
+[node name="LightMech" parent="." instance=ExtResource("3_mech")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
+hangar_preview = true
+
+[node name="DeployConsole" parent="." instance=ExtResource("4_console")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 8)
+
+[node name="Scavenger" parent="." instance=ExtResource("2_scav")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 11)

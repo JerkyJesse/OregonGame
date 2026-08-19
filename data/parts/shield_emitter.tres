@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://data/part_data.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+id = "shield_emitter"
+display_name = "Shield Lattice"
+slot = "utility"
+condition = 1.0
+rarity = "relic"
+scales = PackedStringArray("medium", "heavy")
+weight = 8.5
+volume = 1.7
+heat_gen = 0
+power_draw = 12
+power_output = 0
+durability = 35
+damage = 0
+value = 180
+is_weapon = false
+weapon_kind = ""
+faction_tag = "corporate"
+albedo = Color(0.45, 0.7, 1.0, 1)
+is_payload = false

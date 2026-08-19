@@ -1,0 +1,233 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.07, 0.08, 0.09, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.77, 0.4, 0.14, 1)
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+
+[node name="Hud" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_hud")
+
+[node name="ObjectiveLabel" type="Label" parent="."]
+offset_left = 24.0
+offset_top = 18.0
+offset_right = 900.0
+offset_bottom = 48.0
+theme_override_colors/font_color = Color(0.82, 0.78, 0.7, 1)
+theme_override_font_sizes/font_size = 16
+text = "GETTHEMECHOUTTADODGE"
+
+[node name="HealthLabel" type="Label" parent="."]
+offset_left = 24.0
+offset_top = 50.0
+offset_right = 280.0
+offset_bottom = 78.0
+theme_override_colors/font_color = Color(0.9, 0.35, 0.22, 1)
+theme_override_font_sizes/font_size = 18
+text = "HULL  100"
+
+[node name="CarryLabel" type="Label" parent="."]
+offset_left = 24.0
+offset_top = 78.0
+offset_right = 720.0
+offset_bottom = 108.0
+theme_override_colors/font_color = Color(0.75, 0.8, 0.72, 1)
+theme_override_font_sizes/font_size = 15
+text = "STASH"
+
+[node name="PromptLabel" type="Label" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -92.0
+offset_right = 420.0
+offset_bottom = -40.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.84, 0.45, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+text = ""
+
+[node name="BannerLabel" type="Label" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -420.0
+offset_top = -160.0
+offset_right = 420.0
+offset_bottom = -100.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.7, 1)
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 1
+text = ""
+
+[node name="Crosshair" type="ColorRect" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -2.0
+offset_top = -2.0
+offset_right = 2.0
+offset_bottom = 2.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.95, 0.85, 0.55, 0.85)
+
+[node name="ExtractWrap" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -180.0
+offset_top = -140.0
+offset_right = 180.0
+offset_bottom = -104.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="ExtractWrap"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="ExtractBar" type="ProgressBar" parent="ExtractWrap/Margin"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+show_percentage = false
+max_value = 100.0
+value = 0.0
+
+[node name="SlotPanel" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -210.0
+offset_right = 230.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="SlotPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="SlotPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="SlotPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "HARDPOINT"
+horizontal_alignment = 1
+
+[node name="EquippedLabel" type="Label" parent="SlotPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.8, 0.78, 1)
+text = "Installed: none"
+
+[node name="ItemList" type="ItemList" parent="SlotPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="SlotPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="EquipButton" type="Button" parent="SlotPanel/Margin/VBox/Buttons"]
+layout_mode = 2
+text = "Install"
+
+[node name="UnequipButton" type="Button" parent="SlotPanel/Margin/VBox/Buttons"]
+layout_mode = 2
+text = "Remove"
+
+[node name="CloseButton" type="Button" parent="SlotPanel/Margin/VBox/Buttons"]
+layout_mode = 2
+text = "Close"
+
+[node name="LoadoutPanel" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -220.0
+offset_right = 240.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="LoadoutPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="LoadoutPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="LoadoutPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "MECH LOADOUT"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="LoadoutPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.8, 0.78, 1)
+text = "Choose a hardpoint, then bolt a stash part onto it."
+autowrap_mode = 2
+
+[node name="Slots" type="VBoxContainer" parent="LoadoutPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LoadoutClose" type="Button" parent="LoadoutPanel/Margin/VBox"]
+layout_mode = 2
+text = "Done"
+
+[connection signal="pressed" from="SlotPanel/Margin/VBox/Buttons/EquipButton" to="." method="_on_equip_pressed"]
+[connection signal="pressed" from="SlotPanel/Margin/VBox/Buttons/UnequipButton" to="." method="_on_unequip_pressed"]
+[connection signal="pressed" from="SlotPanel/Margin/VBox/Buttons/CloseButton" to="." method="_on_close_pressed"]
+[connection signal="pressed" from="LoadoutPanel/Margin/VBox/LoadoutClose" to="." method="_on_loadout_close_pressed"]

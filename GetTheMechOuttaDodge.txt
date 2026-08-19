@@ -1,0 +1,97 @@
+Comprehensive Master Build Prompt for GetTheMechOuttaDodgeProject Codename / Final Title: GetTheMechOuttaDodge
+Genre: Multiplayer Extraction Shooter + Mech Combat + Deep Customization
+Core Fantasy: In a toxic, corporate-ravaged intercontinental wasteland, the only safe way to move or fight is inside machines. Players scavenge wreckage from colossal battles, strip parts from fallen mechs, assemble and upgrade their own war machines (and power armor), and extract under extreme risk. Every scale of play is viable and interconnected: a lone scavenger crawling through debris can hijack or strip a multi-story heavy mech, while heavy pilots trade devastating firepower for vulnerability and high loss cost. The joy is battlefield scavenging, modular machine-building from the ruins, and returning stronger at whatever scale you choose.Primary Design PillarsTarkov-level loot/extraction tension and part condition/rarity/compatibility systems applied to mechs, power armor, and components.
+MechWarrior / Armored Core depth of modular combat and customization across scales.
+Entertaining asymmetry: pure scavengers must feel thrilling and viable alongside (and against) heavy mechs.
+Interconnected multi-scale gameplay where scavenging feeds building, building enables better raids, and combat creates new scavenging opportunities.
+High mechanical depth and readable combat over pure graphical fidelity or endless simulation.
+Persistent hangar progression driven by scavenged parts rather than pure XP.
+Future-proof for VR/cockpit simulation and cosmetics-first monetization that works across every scale.
+Scope discipline: solid core loops, destructible/lootable components, clear extraction tension. Avoid unfinishable features.
+
+Working Title Alternatives (use GetTheMechOuttaDodge as primary): Oregon, Mech Extraction, Scav Mech, GetTheMechOuttaDodge.1. Setting & Lore (Keep Light and Flexible)Corporate-capitalist industrial nightmare / post-apocalyptic intercontinental conflict. Air is toxic; open exposure is lethal without machines or sealed gear. Factions (corporate, scavenger collectives, remnant military, independent warlords) clash over scarce resources, encrypted data cores / “bitcoin-style” payloads carried inside mechs, space-fuel, rare actuators, reactors, and high-grade plating. Mechs range from light scavenger frames and power armor to multi-story heavies capable of crushing buildings. Battles leave massive wreckage fields that become high-risk scavenging grounds. Lore supports mechanics; do not constrain systems with rigid canon.2. Core Gameplay LoopDeploy into a large open or semi-open raid map in a chosen scale/role (scavenger, light/power armor, medium mech, heavy mech, support vehicle).
+Fight, scavenge, opportunistically loot, or hijack during or after major engagements.
+Extract with valuable mech parts, weapons, components, data cores, resources, and payloads under tension (extraction points can be contested, timed, or require power/activation).
+Return to persistent personal hangar/workshop.
+Repair, strip, customize, upgrade, reconfigure, paint, and test mechs/power armor/vehicles using scavenged parts.
+Use improved machines and loadouts to take higher risks for better rewards.
+Repeat. Combat creates wreckage → scavengers loot → better machines → bigger fights → more wreckage.
+
+Support simultaneous combat raids, post-battle scavenging waves, opportunistic late joins, and different map scales/roles on the same persistent or session map instances where feasible.3. Player Scales & Roles (All Playable and Fully Interconnected)Pure Human / Scavenger: Tiny, fragile, highly mobile. Can hide in debris, crawl through wreckage, pick individual wires/components, hijack disabled mechs (if systems allow), and extract small high-value parts. Extreme risk of being crushed, stepped on, or vaporized. Highest mobility and stealth potential.
+Light / Scav Mech or Power Armor: Fast, agile personal frames for mid-scale scavenging, skirmishing, and rapid extraction. Can board/disembark quickly.
+Medium / Standard Battle Mechs: Classic MechWarrior / Armored Core size. Heavy modular customization, primary combat focus.
+Heavy / Large Mechs: Multi-story machines. Higher resource cost, potential squad coordination needs, devastating firepower and carrying capacity, but harder to hide, costlier to lose, more attractive targets, and slower/less agile.
+Support / Road Vehicles: Logistics, recovery, mobile workshops, ammo/fuel carriers, or light combat support. Can interact with mechs (towing, repair, resupply).
+
+Critical Interactions:Players can dismount from mechs/vehicles (Driver 2 style), fight on foot as scavengers, re-board friendly or seized machines, or attempt to hotwire/hack abandoned/disabled ones.
+After major engagements, scavenger players or late joiners can drop into the same map instance (or a scavenger wave) to loot the battlefield under higher remaining threats (surviving hostiles, environmental hazards, rival scavs).
+Scale asymmetry is intentional and celebrated: scavengers sprint between falling metal limbs while heavies trade fire overhead.
+
+4. Key Systems (Implement with Maximum Depth)Deep Modular Customization & ProgressionEvery major component is scavengable, repairable, and swappable: weapons (ballistic, energy, missile, melee), armor plating (sections), actuators, reactors/power plants, sensors/radar, cooling systems, myomer/muscle strands, knee-mounted vulcans, jump jets, shields, data cores, cockpits, etc.
+Players can literally strip a destroyed mech and bolt its twin vulcan cannons onto their own chassis (compatibility rules, mounting points, weight/balance/heat/power constraints).
+Parts have: condition (0–100% or quality tiers), rarity, compatibility tags (chassis size, faction tech, mounting hardpoints), weight, heat generation, power draw, durability.
+Progression is almost entirely part-driven: acquire → repair/refurbish → combine/install → test. Minimal pure XP; skill/proficiency can unlock better repair success or hotwire chances.
+Visual and functional modularity: swapped parts visibly change the mech’s appearance and performance. Support painting, decals, and cosmetic skins that work across all scales.
+
+Loot, Extraction & EconomyHigh-stakes Tarkov-style extraction: multiple extract types (timed, contested, vehicle-assisted, stealth, high-value payload special extracts).
+Data cores / encrypted payloads require penetration, hacking, or physical removal from specific mech sections (vulnerable while doing so).
+Resource scarcity forces repeated raids. Hangar storage and workshop space scale with wealth/success (small garage → industrial bay).
+Marketplace or player trading of parts (with risk of scams or faction taxes if desired). Secure containers or limited safe extraction slots for high-value items.
+
+Combat & DestructibilityReadable, weighty mech combat with heat management, ammunition types, component targeting, and progressive destruction.
+Mechs can lose limbs, weapons, armor sections, sensors, or mobility while remaining partially operational. Destroyed or disabled sections become lootable.
+Scavengers can target specific weak points or climb/attach to larger machines in limited ways.
+Environmental destruction (buildings, terrain) that creates new cover or hazards.
+
+Raid Structure FlexibilityNo single rigid raid template. Support:Full combat raids with faction objectives.
+Post-battle scavenging waves on the same map.
+Opportunistic late joins / scavenger drops.
+Different map scales or layered play (ground + elevated mech combat).
+
+Factions influence spawn points, available starting loadouts, objectives, and extract locations.
+Dynamic events: incoming heavy reinforcements, toxic storms, collapsing structures, rival scavenger swarms.
+
+Hangar / Progression HubPersistent personal workshop.
+Assemble, disassemble, repair, upgrade, paint, and test mechs/power armor/vehicles.
+Inventory management with weight, volume, and compatibility filters.
+Test range or simulation mode for loadout validation.
+Space and features unlock/scale with success and wealth.
+
+Risk/Reward Across ScalesBigger machines = more firepower, armor, carrying capacity → harder to hide, higher repair/replacement cost, bigger target.
+Pure scavengers can steal high-value components mid-fight or from fresh wrecks if they survive.
+Loss of a heavy is devastating; loss of a scavenger is painful but recoverable.
+
+5. Technical & Implementation Guidelines (Prioritize Working Core)Target Platform & Tech Stack Suggestions (choose and commit early):Unreal Engine 5 (recommended for large-scale destruction, Nanite, Lumen, Chaos physics, multiplayer replication) or Godot 4 / Unity if smaller team.
+Multiplayer: dedicated servers or peer-hosted with robust replication for mechs, parts, and destruction. Consider networking solutions that handle many simultaneous actors of different scales.
+Physics: robust vehicle/mech physics with jointed limbs, weight distribution, and destruction.
+Modular part system: data-driven (ScriptableObjects / DataAssets / JSON or database) with hardpoint sockets, compatibility graphs, and runtime assembly.
+Inventory & persistence: backend (PlayFab, custom, or Firebase/equivalent) for hangars, parts, progression. Local offline testing mode essential.
+Extraction tension systems: timers, zone control, visibility/threat indicators.
+Destructible components that spawn loot containers or physical part actors on destruction.
+AI for faction mechs and scavengers that scale appropriately.
+Performance: LODs, streaming, and culling critical for multi-scale maps with many destructible objects.
+
+Architecture Priorities:Data-driven everything for parts, hardpoints, compatibility, and balancing.
+Clear separation: Core combat/mechs → Loot/extraction → Hangar progression → Networking.
+Prototype the multi-scale interaction and part-stripping loop first (scavenger looting a disabled medium mech and bolting a weapon onto their light frame, then extracting).
+Readable combat over photorealism. Machines forgive abstraction in animation.
+Support for future VR (cockpit views, physical cockpit joke potential via tracked objects).
+Monetization hooks: cosmetic skins, paints, decals, hangar decorations that apply across all scales. No pay-to-win parts.
+
+Scope Discipline & Milestones Toward Fully Working EXE:Single-player vertical slice: one map, scavenger + medium mech, basic modular weapons/armor, extract, simple hangar with part swapping.
+Destructible components + looting of wrecks.
+Multiplayer basic (2–8 players) with replication of mechs and shared wreckage.
+Full scale roles + dismount/hijack.
+Persistent hangar + progression.
+Multiple maps, factions, post-battle scav waves, economy polish.
+Balance, anti-cheat considerations, polish, packaging into standalone EXE (Windows first, then others).
+
+Avoid: Endless simulation features, perfect human animation, over-scoped open world persistence before core loops are fun, feature creep that prevents a shippable core.Tone & Feel Targets:High tension during extraction and scavenging under fire or underfoot.
+Satisfying “I stripped that gun off the dead heavy and now it’s mine” moments.
+Asymmetry that feels fair and exciting rather than frustrating.
+Industrial, grimy, corporate-dystopian aesthetic with functional machine beauty.
+Immersive machine operation without requiring 1:1 realism.
+
+Final Directive for Implementation
+Build GetTheMechOuttaDodge as a deep, replayable multiplayer extraction experience centered on the joy of scavenging a battlefield of giant machines, piecing together your own war machine from the wreckage, and returning to do it all again at whatever scale you choose. Every system must feed the others. Prioritize a solid, shippable core loop that produces a fully working executable over incomplete grandeur. Design modular systems so future content (new parts, maps, scales, VR) can be added cleanly. Make the scavenger-to-heavy fantasy feel alive, dangerous, and addictive.Use this document as the single source of truth. Expand individual systems into detailed technical design documents only after the core loop is playable. Ship a working game.
+

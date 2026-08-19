@@ -1,0 +1,50 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://world/extract_zone.gd" id="1_extract"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_pad"]
+albedo_color = Color(0.18, 0.55, 0.28, 1)
+emission_enabled = true
+emission = Color(0.15, 0.7, 0.28, 1)
+emission_energy_multiplier = 1.4
+
+[sub_resource type="StandardMaterial3D" id="Mat_beacon"]
+transparency = 1
+albedo_color = Color(0.3, 0.95, 0.4, 0.4)
+emission_enabled = true
+emission = Color(0.3, 1, 0.4, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pad"]
+top_radius = 5.0
+bottom_radius = 5.0
+height = 0.15
+material = SubResource("Mat_pad")
+
+[sub_resource type="CylinderShape3D" id="CylinderShape_zone"]
+height = 4.0
+radius = 5.2
+
+[node name="ExtractZone" type="Area3D"]
+collision_layer = 8
+collision_mask = 6
+script = ExtResource("1_extract")
+
+[node name="Pad" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0)
+mesh = SubResource("CylinderMesh_pad")
+
+[node name="Beacon" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.08, 0, 0, 0, 22, 0, 0, 0, 0.08, 0, 1.8, 0)
+mesh = SubResource("CylinderMesh_pad")
+surface_material_override/0 = SubResource("Mat_beacon")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("CylinderShape_zone")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+light_color = Color(0.35, 1, 0.45, 1)
+light_energy = 4.0
+omni_range = 16.0

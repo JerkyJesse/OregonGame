@@ -1,0 +1,11 @@
+.godot/
+.import/
+*.translation
+*.apk
+*.aab
+*.zip
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+build/

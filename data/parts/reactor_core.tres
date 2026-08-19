@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://data/part_data.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+id = "reactor_core"
+display_name = "Reactor Core"
+slot = "reactor"
+condition = 1.0
+rarity = "rare"
+scales = PackedStringArray("medium", "heavy", "vehicle")
+weight = 10
+volume = 2.2
+heat_gen = 0
+power_draw = 0
+power_output = 24
+durability = 50
+damage = 0
+value = 160
+is_weapon = false
+weapon_kind = ""
+faction_tag = "corporate"
+albedo = Color(0.2, 0.75, 0.85, 1)
+is_payload = false

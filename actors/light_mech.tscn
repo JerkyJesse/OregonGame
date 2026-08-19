@@ -1,0 +1,161 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://actors/light_mech.gd" id="1_mech"]
+[ext_resource type="Script" path="res://actors/slot_hotspot.gd" id="2_slot"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_rust"]
+albedo_color = Color(0.52, 0.27, 0.12, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_dark"]
+albedo_color = Color(0.18, 0.18, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_unit"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape_body"]
+size = Vector3(4.2, 8, 3.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape_slot"]
+size = Vector3(1.8, 1.2, 1.2)
+
+[node name="LightMech" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 5
+script = ExtResource("1_mech")
+
+[node name="Torso" type="MeshInstance3D" parent="."]
+transform = Transform3D(2.8, 0, 0, 0, 3.2, 0, 0, 0, 2.4, 0, 5.2, 0)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_rust")
+
+[node name="Head" type="MeshInstance3D" parent="."]
+transform = Transform3D(1.35, 0, 0, 0, 1.05, 0, 0, 0, 1.25, 0, 7.15, 0.35)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_dark")
+
+[node name="Visor" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.9, 0, 0, 0, 0.28, 0, 0, 0, 0.15, 0, 7.2, 1.02)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="LegL" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.7, 0, 0, 0, 3.6, 0, 0, 0, 0.85, -0.85, 1.8, 0)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_dark")
+
+[node name="LegR" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.7, 0, 0, 0, 3.6, 0, 0, 0, 0.85, 0.85, 1.8, 0)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_dark")
+
+[node name="ArmL" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.55, 0, 0, 0, 2.5, 0, 0, 0, 0.55, -1.9, 5.3, 0.15)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_rust")
+
+[node name="ArmR" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.55, 0, 0, 0, 2.5, 0, 0, 0, 0.55, 1.9, 5.3, 0.15)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_rust")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0)
+shape = SubResource("BoxShape_body")
+
+[node name="Hardpoints" type="Node3D" parent="."]
+
+[node name="chest" type="MeshInstance3D" parent="Hardpoints"]
+transform = Transform3D(1.7, 0, 0, 0, 0.7, 0, 0, 0, 0.45, 0, 5.55, 1.4)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="arm_l" type="MeshInstance3D" parent="Hardpoints"]
+transform = Transform3D(0.45, 0, 0, 0, 0.8, 0, 0, 0, 0.45, -2.25, 5.55, 0.2)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="arm_r" type="MeshInstance3D" parent="Hardpoints"]
+transform = Transform3D(0.45, 0, 0, 0, 0.8, 0, 0, 0, 0.45, 2.25, 5.55, 0.2)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="legs" type="MeshInstance3D" parent="Hardpoints"]
+transform = Transform3D(1.9, 0, 0, 0, 0.35, 0, 0, 0, 0.4, 0, 2.15, 0.75)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="reactor" type="MeshInstance3D" parent="Hardpoints"]
+transform = Transform3D(1.15, 0, 0, 0, 1.15, 0, 0, 0, 0.4, 0, 5.6, -1.4)
+mesh = SubResource("BoxMesh_unit")
+
+[node name="SlotChest" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.55, 1.4)
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = true
+script = ExtResource("2_slot")
+slot = "chest"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SlotChest"]
+shape = SubResource("BoxShape_slot")
+
+[node name="SlotArmL" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.25, 5.55, 0.2)
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = true
+script = ExtResource("2_slot")
+slot = "arm_l"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SlotArmL"]
+shape = SubResource("BoxShape_slot")
+
+[node name="SlotArmR" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.25, 5.55, 0.2)
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = true
+script = ExtResource("2_slot")
+slot = "arm_r"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SlotArmR"]
+shape = SubResource("BoxShape_slot")
+
+[node name="SlotLegs" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0.8)
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = true
+script = ExtResource("2_slot")
+slot = "legs"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SlotLegs"]
+shape = SubResource("BoxShape_slot")
+
+[node name="SlotReactor" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.6, -1.4)
+collision_layer = 8
+collision_mask = 0
+monitoring = false
+monitorable = true
+script = ExtResource("2_slot")
+slot = "reactor"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SlotReactor"]
+shape = SubResource("BoxShape_slot")
+
+[node name="Cockpit" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.15, 0.85)
+
+[node name="CockpitCamera" type="Camera3D" parent="Cockpit"]
+fov = 72.0
+near = 0.08
+current = false
+
+[node name="InteractRay" type="RayCast3D" parent="Cockpit/CockpitCamera"]
+target_position = Vector3(0, 0, -14)
+collision_mask = 13
+collide_with_areas = true
+
+[node name="DismountPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.2, 0, 0)

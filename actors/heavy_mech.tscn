@@ -1,0 +1,89 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://actors/heavy_mech.gd" id="1_heavy"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_steel"]
+albedo_color = Color(0.18, 0.22, 0.28, 1)
+metallic = 0.35
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="Mat_visor"]
+albedo_color = Color(0.7, 0.12, 0.08, 1)
+emission_enabled = true
+emission = Color(0.85, 0.12, 0.05, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="BoxMesh" id="BoxMesh_unit"]
+size = Vector3(1, 1, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape_body"]
+size = Vector3(9, 20, 8)
+
+[sub_resource type="CylinderShape3D" id="CylinderShape_stomp"]
+height = 1.2
+radius = 4.2
+
+[node name="HeavyMech" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_heavy")
+
+[node name="Body" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11, 0)
+
+[node name="Torso" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(7.5, 0, 0, 0, 8.5, 0, 0, 0, 6.5, 0, 0, 0)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_steel")
+
+[node name="Head" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(4.2, 0, 0, 0, 3.2, 0, 0, 0, 4.4, 0, 6.2, 1.2)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_steel")
+
+[node name="Visor" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(2.8, 0, 0, 0, 0.7, 0, 0, 0, 0.3, 0, 6.3, 3.5)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_visor")
+
+[node name="ArmL" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1.6, 0, 0, 0, 7, 0, 0, 0, 1.6, -5.2, -0.5, 0.4)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_steel")
+
+[node name="ArmR" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1.6, 0, 0, 0, 7, 0, 0, 0, 1.6, 5.2, -0.5, 0.4)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_steel")
+
+[node name="LegL" type="MeshInstance3D" parent="."]
+transform = Transform3D(2.2, 0, 0, 0, 8, 0, 0, 0, 2.4, -2.4, 4, 0)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_steel")
+
+[node name="LegR" type="MeshInstance3D" parent="."]
+transform = Transform3D(2.2, 0, 0, 0, 8, 0, 0, 0, 2.4, 2.4, 4, 0)
+mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_steel")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
+shape = SubResource("BoxShape_body")
+
+[node name="Cockpit" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 3.2)
+
+[node name="CockpitCamera" type="Camera3D" parent="Cockpit"]
+fov = 70.0
+near = 0.1
+current = false
+
+[node name="Stomp" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Stomp"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("CylinderShape_stomp")
