@@ -84,7 +84,8 @@ static func begin(world: Node3D, map_id: String) -> void:
 	_net_spawns(world)
 	_start_band(world)
 	LOOK.apply(world, LOOK.KIND_PIPE if map_id == "pipeline" else LOOK.KIND_YARD)
-	world.get_tree().create_timer(0.8).timeout.connect(func() -> void:
+	# After tax/court banners (~2.5s) so the mode fantasy is the last drop line players see.
+	world.get_tree().create_timer(3.2).timeout.connect(func() -> void:
 		if is_instance_valid(world) and RunState.in_raid:
 			Hud.show_banner(WorldLore.mode_drop_banner(RunState.raid_mode))
 	)
