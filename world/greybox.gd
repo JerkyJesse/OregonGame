@@ -60,17 +60,54 @@ static func build_hangar_props(parent: Node3D, tier: int = 1) -> void:
 	add_box(parent, Vector3(-8, 0.08, 0), Vector3(12, 0.04, 0.4), hazard, 0.8)
 	add_box(parent, Vector3(14, 1.1, -13.6), Vector3(3.4, 2.2, 0.35), Color(0.22, 0.28, 0.24), 0.15)
 	sign_at(parent, Vector3(14, 2.8, -13.4), "NORTH WALL  ·  TAM'S STALL", Color(0.75, 0.95, 0.7))
+	sign_at(parent, Vector3(0, 8.4, -13.2), "BAY TIER %d" % clampi(tier, 1, 3), Color(0.95, 0.62, 0.22))
 	add_collider(parent, Vector3(0, 5, -17), Vector3(42, 10, 0.5))
 	add_collider(parent, Vector3(0, 5, 17), Vector3(42, 10, 0.5))
 	add_collider(parent, Vector3(-21, 5, 0), Vector3(0.5, 10, 34))
 	add_collider(parent, Vector3(21, 5, 0), Vector3(0.5, 10, 34))
 	add_collider(parent, Vector3(0, 10.2, 0), Vector3(42, 0.4, 34))
+	# Tier 1: cramped scav bay
+	add_box(parent, Vector3(-10, 0.35, -8), Vector3(3.2, 0.7, 2.4), Color(0.2, 0.18, 0.14))
+	add_box(parent, Vector3(6, 0.9, 10), Vector3(2.0, 1.8, 1.4), steel)
 	if tier >= 2:
 		add_box(parent, Vector3(16, 2.2, -6), Vector3(5, 4.4, 8), Color(0.16, 0.17, 0.19))
 		add_box(parent, Vector3(-16, 0.2, -4), Vector3(8, 0.2, 8), Color(0.2, 0.18, 0.12), 0.2)
+		add_box(parent, Vector3(-16, 2.4, 6), Vector3(4.5, 4.8, 5.5), Color(0.18, 0.19, 0.21))
+		sign_at(parent, Vector3(-16, 5.2, 6), "MEDIUM PAD + HAULER LANE", Color(0.55, 0.85, 1.0))
+		add_box(parent, Vector3(10, 0.08, -2), Vector3(10, 0.04, 0.35), Color(0.2, 0.7, 0.85), 0.9)
 	if tier >= 3:
 		add_box(parent, Vector3(0, 12.4, 0), Vector3(6, 4, 6), Color(0.2, 0.14, 0.1))
 		add_box(parent, Vector3(8, 1.0, -12), Vector3(3, 2, 3), steel)
+		add_box(parent, Vector3(0, 0.15, -8), Vector3(14, 0.12, 8), Color(0.14, 0.14, 0.15), 0.35)
+		sign_at(parent, Vector3(0, 5.6, -10), "HEAVY CRANE BAY — LIVE", Color(0.95, 0.45, 0.2))
+		add_crane(parent, Vector3(4, 0, -9), 0.0)
+
+
+static func add_sealed_pocket(parent: Node3D, pos: Vector3, size: Vector3, label: String) -> void:
+	var steel := Color(0.16, 0.17, 0.18)
+	var rim := Color(0.35, 0.72, 0.85)
+	# Shell walls — leave a doorway on +Z
+	add_box(parent, pos + Vector3(0, size.y * 0.5, -size.z * 0.5 + 0.15), Vector3(size.x, size.y, 0.35), steel)
+	add_box(parent, pos + Vector3(-size.x * 0.5 + 0.15, size.y * 0.5, 0), Vector3(0.35, size.y, size.z), steel)
+	add_box(parent, pos + Vector3(size.x * 0.5 - 0.15, size.y * 0.5, 0), Vector3(0.35, size.y, size.z), steel)
+	add_box(parent, pos + Vector3(0, size.y + 0.1, 0), Vector3(size.x, 0.25, size.z), steel, 0.2)
+	add_box(parent, pos + Vector3(0, 0.05, 0), Vector3(size.x - 0.4, 0.08, size.z - 0.4), Color(0.12, 0.14, 0.15), 0.15)
+	sign_at(parent, pos + Vector3(0, size.y + 0.8, size.z * 0.55), label, rim)
+	var pocket: Area3D = (load("res://world/sealed_pocket.gd") as GDScript).new()
+	pocket.position = pos + Vector3(0, size.y * 0.45, 0)
+	var col := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(size.x - 0.6, size.y * 0.9, size.z - 0.6)
+	col.shape = sh
+	pocket.add_child(col)
+	parent.add_child(pocket)
+
+
+static func add_filter_landmark(parent: Node3D, pos: Vector3, label: String = "SEALED-AIR CACHE") -> void:
+	var can := Color(0.35, 0.75, 0.4)
+	add_box(parent, pos + Vector3(0, 0.7, 0), Vector3(1.1, 1.4, 1.1), Color(0.22, 0.28, 0.22), 0.35)
+	LOOK.add_cyl(parent, pos + Vector3(0, 1.55, 0), 0.55, 0.28, can, Vector3.ZERO, 1.2)
+	sign_at(parent, pos + Vector3(0, 2.4, 0), label, Color(0.55, 0.95, 0.45))
 
 
 static func sign_at(parent: Node3D, pos: Vector3, text: String, color: Color) -> void:
@@ -147,6 +184,11 @@ static func build_raid_cover(parent: Node3D) -> void:
 	add_box(parent, Vector3(-18, 2.2, 12), Vector3(3.2, 4.4, 5.5), Color(0.22, 0.2, 0.18))
 	add_box(parent, Vector3(-18, 0.9, 15.5), Vector3(1.4, 1.8, 2.2), rust)
 	add_box(parent, Vector3(-18, 4.8, 10.2), Vector3(1.2, 1.2, 4.0), Color(0.28, 0.26, 0.24), 0.0, Vector3(0, 0, 35))
+	# Sealed-steel pockets + filter landmarks
+	add_sealed_pocket(parent, Vector3(-22, 0, 22), Vector3(6.5, 3.2, 5.5), "SEALED STEEL — filter holds")
+	add_filter_landmark(parent, Vector3(-18.5, 0, 24.2), "FILTER CACHE")
+	add_sealed_pocket(parent, Vector3(22, 0, -20), Vector3(5.5, 3.0, 5.0), "SEALED BUNKER — White Lung blind")
+	add_filter_landmark(parent, Vector3(24.5, 0, -17.5), "SEALED-AIR CAN")
 	add_collider(parent, Vector3(0, 8, -45), Vector3(110, 16, 1.2))
 	add_collider(parent, Vector3(0, 8, 45), Vector3(110, 16, 1.2))
 	add_collider(parent, Vector3(-55, 8, 0), Vector3(1.2, 16, 90))
@@ -177,6 +219,10 @@ static func build_pipeline(parent: Node3D) -> void:
 	sign_at(parent, Vector3(-20, 9.2, 0), "BREACH RISK — FILTER ON", Color(0.95, 0.4, 0.25))
 	sign_at(parent, Vector3(20, 9.2, 0), "FUEL RISER — STRIP / EXTRACT", Color(0.45, 0.85, 0.95))
 	add_box(parent, Vector3(-6, 1.2, 18), Vector3(2.4, 2.4, 2.4), Color(0.2, 0.28, 0.18), 0.4)
+	add_sealed_pocket(parent, Vector3(-24, 0, -18), Vector3(5.5, 3.0, 4.8), "SEALED STEEL — under the pipe")
+	add_filter_landmark(parent, Vector3(-21, 0, -15.5), "FILTER CACHE")
+	add_sealed_pocket(parent, Vector3(22, 0, 18), Vector3(5.0, 3.0, 4.5), "PUMP HOUSE ANNEX — sealed")
+	add_filter_landmark(parent, Vector3(19.5, 0, 20.5))
 	add_collider(parent, Vector3(0, 10, -32), Vector3(90, 20, 1))
 	add_collider(parent, Vector3(0, 10, 32), Vector3(90, 20, 1))
 	add_collider(parent, Vector3(-40, 10, 0), Vector3(1, 20, 64))
