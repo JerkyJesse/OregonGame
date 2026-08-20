@@ -47,6 +47,8 @@ var extracted_value: int = 0
 var filter: float = 100.0
 var tax_cleared: bool = false
 var extracts_completed: int = 0
+var last_extract_tags: Array = []
+var vendor_rotation: int = 0
 const FILTER_MAX := 100.0
 
 
@@ -74,6 +76,8 @@ func new_game() -> void:
 	in_raid = false
 	health = 100.0
 	extracts_completed = 0
+	last_extract_tags.clear()
+	vendor_rotation = 0
 	raid_carry.clear()
 	secure_carry.clear()
 	stash.append(make_part("armor_plate", 1.0))
@@ -470,16 +474,21 @@ func dump_last_carry() -> Dictionary:
 func extract_to_hangar() -> void:
 	var n := raid_carry.size() + secure_carry.size()
 	var value := 0
+	var tags: Array = []
 	for part in raid_carry:
 		stash.append(part)
 		value += int(part.get("value", 10))
+		_tag_extract_part(part, tags)
 	for part in secure_carry:
 		stash.append(part)
 		value += int(part.get("value", 10))
+		_tag_extract_part(part, tags)
 	var salvage := maxi(int(float(value) * 0.35), n * 8) if n > 0 else 0
 	credits += salvage
 	extracted_value = salvage
 	extracts_completed += 1
+	last_extract_tags = tags
+	vendor_rotation = (vendor_rotation + 1 + tags.size()) % 7
 	_unlock_from_wealth()
 	raid_carry.clear()
 	secure_carry.clear()
@@ -492,6 +501,29 @@ func extract_to_hangar() -> void:
 	if NetSession.is_online():
 		NetSession.on_local_extracted()
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
+
+
+func _tag_extract_part(part: Dictionary, tags: Array) -> void:
+	if part.is_empty():
+		return
+	if bool(part.get("is_payload", false)):
+		if not tags.has("shard"):
+			tags.append("shard")
+	elif bool(part.get("is_weapon", false)):
+		if not tags.has("gun"):
+			tags.append("gun")
+	elif str(part.get("id", "")) == "filter_canister":
+		if not tags.has("filter"):
+			tags.append("filter")
+	elif str(part.get("slot", "")) in ["legs", "chest"] or str(part.get("id", "")).contains("plating") or str(part.get("id", "")).contains("armor"):
+		if not tags.has("plate"):
+			tags.append("plate")
+	elif str(part.get("id", "")).contains("reactor") or str(part.get("id", "")).contains("cooler"):
+		if not tags.has("power"):
+			tags.append("power")
+	else:
+		if not tags.has("junk"):
+			tags.append("junk")
 
 
 func fail_raid(reason: String, lose_machine: bool = false) -> void:
@@ -606,16 +638,70 @@ func vendor_offers() -> Array:
 		["cooler_pack", 35],
 		["sensor_suite", 70],
 	]
+	var rot := vendor_rotation
+	var tags: Array = last_extract_tags
+	# Stock shifts after extracts: rotate specialty shelves.
 	if extracts_completed >= 1 or hangar_tier >= 2:
-		offers.append(["jump_jets", 55])
+		offers.append(["jump_jets", 55 if rot % 2 == 0 else 48])
 	if extracts_completed >= 2:
 		offers.append(["shield_emitter", 80])
-		offers.append(["actuator_leg", 40])
+		offers.append(["actuator_leg", 40 if rot % 3 != 0 else 34])
 	if hangar_tier >= 3:
 		offers.append(["heavy_plating", 90])
 	if faction == "pale":
 		offers.append(["filament_veil", 95])
-	return offers
+	if tags.has("gun") or rot == 1:
+		offers.append(["cooler_pack", 28])
+		offers.append(["myomer_strand", 26])
+	if tags.has("shard") or rot == 2:
+		offers.append(["sensor_suite", 58])
+		offers.append(["filter_canister", 18])
+	if tags.has("plate") or rot == 3:
+		offers.append(["armor_plate", 20])
+		offers.append(["actuator_leg", 36])
+	if tags.has("power") or rot == 4:
+		offers.append(["cooler_pack", 30])
+		if extracts_completed >= 1:
+			offers.append(["compact_reactor", 110])
+	if tags.has("filter") or extracts_completed >= 3:
+		offers.append(["filter_canister", 16])
+	if rot == 5 and extracts_completed >= 2:
+		offers.append(["shield_emitter", 72])
+	if rot == 6:
+		offers.append(["sensor_suite", 62])
+	# Deduplicate by part id, keep cheapest quote.
+	var best: Dictionary = {}
+	for o in offers:
+		var pid := str(o[0])
+		var cost := int(o[1])
+		if not best.has(pid) or cost < int(best[pid]):
+			best[pid] = cost
+	var out: Array = []
+	for pid in best.keys():
+		out.append([pid, int(best[pid])])
+	out.sort_custom(func(a, b): return int(a[1]) < int(b[1]))
+	return out
+
+
+func vendor_stock_note() -> String:
+	var n := extracts_completed
+	if n <= 0:
+		return "Starter shelf: filters, plate seconds, myomer, coolers, lying sensors. Stock shifts after you extract."
+	var tags: Array = last_extract_tags
+	var flavor := "Shelf rotated after extract #%d." % n
+	if tags.has("shard"):
+		flavor += " You flashed Choir-tone — he's pushing sensors and sealed-air."
+	elif tags.has("gun"):
+		flavor += " You bolted loud — coolers and myomer are on the counter."
+	elif tags.has("plate"):
+		flavor += " You came back armored — plate seconds and legs are cheap."
+	elif tags.has("power"):
+		flavor += " Reactor smell on you — coolers and a compact core if you're flush."
+	elif tags.has("filter"):
+		flavor += " Filter cans discounted. Don't make a speech."
+	else:
+		flavor += " Junk in, junk out. Check the prices."
+	return flavor
 
 
 func vendor_buy(id: String, cost: int) -> bool:
@@ -700,6 +786,8 @@ func save_state() -> void:
 		"raid_mode": raid_mode,
 		"raid_map": raid_map,
 		"extracts_completed": extracts_completed,
+		"last_extract_tags": last_extract_tags.duplicate(),
+		"vendor_rotation": vendor_rotation,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -752,6 +840,12 @@ func load_state() -> bool:
 	raid_mode = str(data.get("raid_mode", raid_mode))
 	raid_map = str(data.get("raid_map", raid_map))
 	extracts_completed = maxi(int(data.get("extracts_completed", 0)), 0)
+	var tags: Variant = data.get("last_extract_tags", [])
+	if tags is Array:
+		last_extract_tags = (tags as Array).duplicate()
+	else:
+		last_extract_tags.clear()
+	vendor_rotation = int(data.get("vendor_rotation", 0))
 	var light_empty := true
 	for slot in SLOTS:
 		if not get_equipped(slot, "light").is_empty():

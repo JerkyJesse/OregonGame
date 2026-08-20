@@ -385,7 +385,7 @@ func get_interact_label() -> String:
 	if boarded:
 		return ""
 	if disabled or not alive:
-		return "Wrecked %s  [E] strip / bolt / hack   [G] hold hotwire" % scale_id
+		return "Wrecked %s  [E] strip/bolt/hack   [G] hold hotwire (hijack)" % scale_id
 	return "%s  [E] workbench   [F] board cockpit" % scale_id
 
 
@@ -425,7 +425,11 @@ func hold_hotwire(scav: Node, delta: float) -> void:
 	_hotwire += delta * (0.22 + RunState.repair_skill * 0.18)
 	Fx.play("hack")
 	Hud.set_extract(_hotwire)
-	Hud.set_prompt("Hotwiring…  %.0f%%  stay exposed" % (_hotwire * 100.0))
+	Hud.set_prompt("Hotwiring %s…  %.0f%%  stay exposed — husks hear this" % [scale_id.to_upper(), _hotwire * 100.0])
+	if get_tree():
+		get_tree().call_group("heavy_mech", "alert_to", global_position)
+		get_tree().call_group("choir_husk", "alert_to", global_position)
+		get_tree().call_group("ai_scavenger", "alert_to", global_position)
 	if _hotwire >= 1.0:
 		_hotwire = 0.0
 		Hud.set_extract(-1.0)
@@ -434,13 +438,16 @@ func hold_hotwire(scav: Node, delta: float) -> void:
 			alive = true
 			hull = maxf(hull, hull_max * 0.35)
 			RunState.repair_skill = clampf(RunState.repair_skill + 0.02, 0.1, 0.95)
-			Hud.show_banner("Hotwire good — cockpit yours.")
+			Hud.show_banner("Hotwire good — cockpit yours. Hijack complete.")
 			board_pilot(scav)
 		else:
-			Hud.show_banner("Hotwire fail — systems scream.")
+			Hud.show_banner("Hotwire fail — systems scream. Yard heard you.")
 			Fx.play("alarm")
 			heat = minf(heat + 40.0, HEAT_MAX)
-			get_tree().call_group("heavy_mech", "alert_to", global_position)
+			if get_tree():
+				get_tree().call_group("heavy_mech", "alert_to", global_position)
+				get_tree().call_group("choir_husk", "alert_to", global_position)
+				get_tree().call_group("pale_host", "alert_to", global_position)
 
 
 func reset_channels() -> void:
@@ -489,14 +496,21 @@ func hold_pry(scav: Node, delta: float) -> void:
 		return
 	_pry += delta * 0.32
 	Hud.set_extract(_pry)
-	Hud.set_prompt("Prying armor… stay on the calf  %.0f%%" % (_pry * 100.0))
+	Hud.set_prompt("Prying armor on the calf…  %.0f%%  — heavy will notice" % (_pry * 100.0))
+	if get_tree() and delta > 0.0:
+		get_tree().call_group("choir_husk", "alert_to", global_position)
 	if _pry >= 1.0:
 		_pry = 0.0
 		Hud.set_extract(-1.0)
-		var part := RunState.make_part("heavy_plating", randf_range(0.3, 0.7))
+		var id := "heavy_plating"
+		if randf() < 0.28:
+			id = "knee_vulcan"
+		elif randf() < 0.4:
+			id = "armor_plate"
+		var part := RunState.make_part(id, randf_range(0.3, 0.75))
 		if scav is Scavenger and RunState.add_carry(part):
 			Hud.refresh_carry()
-			Hud.show_banner("Plate ripped from the heavy.")
+			Hud.show_banner("Pried %s off the heavy." % part.get("display_name", id))
 			take_section_damage(40.0, global_position + Vector3(0, 2, 0))
 		alert_to(global_position)
 
