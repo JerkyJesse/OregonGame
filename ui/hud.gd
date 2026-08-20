@@ -1,4 +1,4 @@
-extends CanvasLayer
+﻿extends CanvasLayer
 
 var ui_busy: bool = false
 var gameplay_active: bool = false
@@ -25,7 +25,7 @@ var _repair_uids: Array[String] = []
 @onready var _item_list: ItemList = $SlotPanel/Margin/VBox/ItemList
 @onready var _equipped_label: Label = $SlotPanel/Margin/VBox/EquippedLabel
 @onready var _loadout_panel: PanelContainer = $LoadoutPanel
-@onready var _loadout_box: VBoxContainer = $LoadoutPanel/Margin/VBox/Slots
+@onready var _loadout_box: VBoxContainer = $LoadoutPanel/Margin/VBox/SlotScroll/Slots
 
 var _heat: ProgressBar
 var _timer: Label
@@ -46,6 +46,8 @@ func _ready() -> void:
 	_extract_wrap.visible = false
 	_banner.text = ""
 	_build_extras()
+	_fit_menu(_loadout_panel)
+	_fit_menu(_slot_panel)
 	_ignore_hud_mouse()
 	refresh_carry()
 	set_health(RunState.health)
@@ -102,8 +104,9 @@ func _build_extras() -> void:
 	_sensors.size = Vector2(900, 40)
 	add_child(_sensors)
 	_filter_row = HBoxContainer.new()
-	_loadout_box.get_parent().add_child(_filter_row)
-	_loadout_box.get_parent().move_child(_filter_row, 2)
+	var loadout_v: VBoxContainer = _loadout_panel.get_node("Margin/VBox")
+	loadout_v.add_child(_filter_row)
+	loadout_v.move_child(_filter_row, 2)
 	for f in ["all", "chest", "weapon", "rare"]:
 		var b := Button.new()
 		b.text = f
@@ -228,7 +231,7 @@ func open_machine_bay(mech: Node) -> void:
 		_bay.queue_free()
 	_bay = _panel("STRIP / BOLT  %s" % str(mech.get("scale_id")).to_upper())
 	add_child(_bay)
-	var box: VBoxContainer = _bay.get_node("M/S/V")
+	var box: VBoxContainer = _bay.get_node("M/Root/S/V")
 	_add_label(box, "Look-free wreck workbench. Strip parts into carry, then bolt them onto another frame.")
 	var pack: Variant = mech.get("equipped")
 	var equipped: Dictionary = pack if pack is Dictionary else {}
@@ -285,7 +288,7 @@ func _bay_strip(slot: String) -> void:
 		return
 	if RunState.add_carry(taken):
 		refresh_carry()
-		show_banner("Stripped %s — now it's yours." % taken.get("display_name", "part"))
+		show_banner("Stripped %s â€” now it's yours." % taken.get("display_name", "part"))
 		Fx.play("ui")
 		open_machine_bay(_bay_mech)
 	else:
@@ -503,7 +506,7 @@ func open_repair() -> void:
 		_repair.queue_free()
 	_repair = _panel("REFURBISH")
 	add_child(_repair)
-	var box: VBoxContainer = _repair.get_node("M/S/V")
+	var box: VBoxContainer = _repair.get_node("M/Root/S/V")
 	_repair_uids.clear()
 	_add_label(box, "Pick a damaged part. Cost scales with condition.")
 	var list := ItemList.new()
@@ -616,66 +619,116 @@ func open_deploy() -> void:
 		_deploy.queue_free()
 	_deploy = _panel("DEPLOY")
 	add_child(_deploy)
-	var box: VBoxContainer = _deploy.get_node("M/S/V")
+	var box: VBoxContainer = _deploy.get_node("M/Root/S/V")
+	var actions: VBoxContainer = _deploy.get_node("M/Root/A")
 	var brief := Label.new()
 	brief.name = "Briefing"
 	brief.autowrap_mode = TextServer.AUTOWRAP_WORD
-	brief.custom_minimum_size = Vector2(500, 0)
 	brief.add_theme_color_override("font_color", Color(0.78, 0.72, 0.62))
 	box.add_child(brief)
+	var net := Label.new()
+	net.name = "NetHint"
+	net.autowrap_mode = TextServer.AUTOWRAP_WORD
+	net.add_theme_color_override("font_color", Color(0.65, 0.78, 0.82))
+	box.add_child(net)
 	_add_label(box, "Scale")
-	for s in ["scavenger", "light", "armor", "medium", "heavy", "vehicle"]:
-		var b := Button.new()
-		var lock: bool = (not RunState.scale_unlocked(s)) and (s != "scavenger")
-		b.text = s.to_upper() + ("  (locked)" if lock else "")
-		b.disabled = lock
-		b.pressed.connect(_pick_scale.bind(s))
-		box.add_child(b)
+	box.add_child(_option(["scavenger", "light", "armor", "medium", "heavy", "vehicle"], RunState.deploy_scale, _on_scale_item))
 	_add_label(box, "Raid mode")
-	for m in ["combat", "scav_wave", "late_drop"]:
-		var b := Button.new()
-		b.text = WorldLore.mode_title(m)
-		b.pressed.connect(_pick_mode.bind(m))
-		box.add_child(b)
-	_add_label(box, "Yard / faction")
-	for m in ["ash_yard", "pipeline"]:
-		var b := Button.new()
-		b.text = WorldLore.map_title(m)
-		b.pressed.connect(_pick_map.bind(m))
-		box.add_child(b)
-	for f in RunState.FACTIONS:
-		var b := Button.new()
-		b.text = WorldLore.faction_name(f)
-		b.pressed.connect(_pick_faction.bind(f))
-		box.add_child(b)
+	box.add_child(_option(["combat", "scav_wave", "late_drop"], RunState.raid_mode, _on_mode_item, true))
+	_add_label(box, "Yard")
+	box.add_child(_option(["ash_yard", "pipeline"], RunState.raid_map, _on_map_item, true))
+	_add_label(box, "Faction")
+	box.add_child(_option(RunState.FACTIONS, RunState.faction, _on_faction_item, true))
+	_add_label(box, "Friend join IP (LAN)")
+	var ip := LineEdit.new()
+	ip.name = "JoinIP"
+	ip.text = NetSession.join_ip
+	ip.placeholder_text = "192.168.x.x or 127.0.0.1"
+	box.add_child(ip)
 	var host := Button.new()
-	host.text = "Host listen-server :7777"
+	host.text = "Host listen-server :%d" % NetSession.PORT
 	host.pressed.connect(_host)
 	box.add_child(host)
 	var join := Button.new()
-	join.text = "Join 127.0.0.1"
+	join.text = "Join friend"
 	join.pressed.connect(_join)
 	box.add_child(join)
 	var go := Button.new()
 	go.text = "LAUNCH RAID"
+	go.custom_minimum_size = Vector2(0, 40)
 	go.pressed.connect(_launch)
-	box.add_child(go)
+	actions.add_child(go)
 	var close := Button.new()
 	close.text = "Close"
 	close.pressed.connect(close_all_ui)
-	box.add_child(close)
+	actions.add_child(close)
 	_refresh_deploy_briefing()
+
+
+func _option(ids, current: String, cb: Callable, lore: bool = false) -> OptionButton:
+	var ob := OptionButton.new()
+	var selected := 0
+	for i in ids.size():
+		var id := str(ids[i])
+		var label := id.to_upper()
+		if lore:
+			if id in ["combat", "scav_wave", "late_drop"]:
+				label = WorldLore.mode_title(id)
+			elif id in ["ash_yard", "pipeline"]:
+				label = WorldLore.map_title(id)
+			else:
+				label = WorldLore.faction_name(id)
+		if id != "scavenger" and id in ["light", "armor", "medium", "heavy", "vehicle"] and not RunState.scale_unlocked(id):
+			label += "  (locked)"
+		ob.add_item(label, i)
+		ob.set_item_metadata(i, id)
+		if id != "scavenger" and id in ["light", "armor", "medium", "heavy", "vehicle"] and not RunState.scale_unlocked(id):
+			ob.set_item_disabled(i, true)
+		if id == current:
+			selected = i
+	ob.select(selected)
+	ob.item_selected.connect(func(idx: int) -> void:
+		cb.call(str(ob.get_item_metadata(idx)))
+	)
+	return ob
+
+
+func _on_scale_item(s: String) -> void:
+	_pick_scale(s)
+
+
+func _on_mode_item(m: String) -> void:
+	_pick_mode(m)
+
+
+func _on_map_item(m: String) -> void:
+	_pick_map(m)
+
+
+func _on_faction_item(f: String) -> void:
+	_pick_faction(f)
 
 
 func _refresh_deploy_briefing() -> void:
 	if _deploy == null or not is_instance_valid(_deploy):
 		return
-	var brief: Label = _deploy.get_node_or_null("M/S/V/Briefing") as Label
+	var brief: Label = _deploy.get_node_or_null("M/Root/S/V/Briefing") as Label
 	if brief:
 		brief.text = WorldLore.deploy_briefing(RunState.raid_map, RunState.raid_mode, RunState.faction)
+	var net: Label = _deploy.get_node_or_null("M/Root/S/V/NetHint") as Label
+	if net:
+		if NetSession.is_online() and NetSession.is_host():
+			net.text = "Hosting. Friends join %s port %d. Then you press LAUNCH RAID." % [NetSession.lan_ip_text(), NetSession.PORT]
+		elif NetSession.is_online():
+			net.text = "Joined %s. Wait for the host to launch â€” do not leave this hangar." % NetSession.join_ip
+		else:
+			net.text = "Offline solo, or host then share your LAN IP. Same Wi-Fi. Port %d." % NetSession.PORT
 
 
 func _pick_scale(s: String) -> void:
+	if s != "scavenger" and not RunState.scale_unlocked(s):
+		show_banner("Scale locked.")
+		return
 	RunState.deploy_scale = s
 	show_banner("Deploy as %s" % s)
 	_refresh_deploy_briefing()
@@ -702,30 +755,46 @@ func _pick_faction(f: String) -> void:
 
 func _host() -> void:
 	if NetSession.host_game() == OK:
-		show_banner("Hosting.")
+		show_banner("Hosting. Friends join %s:%d" % [NetSession.lan_ip_text(), NetSession.PORT])
 	else:
-		show_banner("Host failed.")
+		show_banner(NetSession.last_error if NetSession.last_error != "" else "Host failed.")
+	_refresh_deploy_briefing()
 
 
 func _join() -> void:
 	_join_async()
 
 
+func _join_ip_text() -> String:
+	if _deploy and is_instance_valid(_deploy):
+		var ip: LineEdit = _deploy.get_node_or_null("M/Root/S/V/JoinIP") as LineEdit
+		if ip:
+			return ip.text.strip_edges()
+	return NetSession.join_ip
+
+
 func _join_async() -> void:
-	var err := await NetSession.join_and_wait("127.0.0.1")
+	var err := await NetSession.join_and_wait(_join_ip_text())
 	if err == OK:
-		show_banner("Joining…")
-		_launch()
+		show_banner("Joined. Wait for the host to press LAUNCH RAID.")
+		if NetSession.is_online() and not NetSession.is_host():
+			NetSession.request_raid.rpc_id(1)
 	else:
-		show_banner("Join failed.")
+		show_banner(NetSession.last_error if NetSession.last_error != "" else "Join failed.")
+	_refresh_deploy_briefing()
 
 
 func _launch() -> void:
+	if NetSession.is_online() and not NetSession.is_host():
+		show_banner("Wait for the host to launch.")
+		NetSession.request_raid.rpc_id(1)
+		return
 	RunState.save_state()
 	close_all_ui()
-	var path := "res://scenes/raid.tscn"
-	if RunState.raid_map == "pipeline":
-		path = "res://scenes/pipeline.tscn"
+	var path := NetSession.scene_for_map(RunState.raid_map)
+	if NetSession.is_online() and NetSession.is_host():
+		NetSession.start_raid(path)
+		return
 	get_tree().change_scene_to_file(path)
 
 
@@ -737,7 +806,7 @@ func open_vendor() -> void:
 		_vendor.queue_free()
 	_vendor = _panel("VENDOR")
 	add_child(_vendor)
-	var box: VBoxContainer = _vendor.get_node("M/S/V")
+	var box: VBoxContainer = _vendor.get_node("M/Root/S/V")
 	_add_label(box, WorldLore.vendor_blurb())
 	var offers := [
 		["armor_plate", 25],
@@ -757,7 +826,7 @@ func open_vendor() -> void:
 	var close := Button.new()
 	close.text = "Close"
 	close.pressed.connect(close_all_ui)
-	box.add_child(close)
+	_vendor.get_node("M/Root/A").add_child(close)
 
 
 func _buy(id: String, cost: int) -> void:
@@ -776,34 +845,59 @@ func _buy_paint() -> void:
 	refresh_carry()
 
 
+func _fit_menu(p: Control) -> void:
+	if p == null:
+		return
+	p.set_anchors_preset(Control.PRESET_FULL_RECT)
+	p.anchor_left = 0.12
+	p.anchor_top = 0.06
+	p.anchor_right = 0.88
+	p.anchor_bottom = 0.94
+	p.offset_left = 0
+	p.offset_top = 0
+	p.offset_right = 0
+	p.offset_bottom = 0
+	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	p.grow_vertical = Control.GROW_DIRECTION_BOTH
+	p.clip_contents = true
+
+
 func _panel(title: String) -> PanelContainer:
 	var p := PanelContainer.new()
-	p.set_anchors_preset(Control.PRESET_CENTER)
-	p.offset_left = -300
-	p.offset_top = -330
-	p.offset_right = 300
-	p.offset_bottom = 330
+	_fit_menu(p)
 	var m := MarginContainer.new()
 	m.name = "M"
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	m.add_theme_constant_override("margin_left", 16)
 	m.add_theme_constant_override("margin_right", 16)
 	m.add_theme_constant_override("margin_top", 16)
 	m.add_theme_constant_override("margin_bottom", 16)
 	p.add_child(m)
-	var scroll := ScrollContainer.new()
-	scroll.name = "S"
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(520, 580)
-	m.add_child(scroll)
-	var v := VBoxContainer.new()
-	v.name = "V"
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.custom_minimum_size = Vector2(520, 0)
-	scroll.add_child(v)
+	var root := VBoxContainer.new()
+	root.name = "Root"
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_theme_constant_override("separation", 10)
+	m.add_child(root)
 	var t := Label.new()
 	t.text = title
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(t)
+	t.add_theme_font_size_override("font_size", 22)
+	root.add_child(t)
+	var scroll := ScrollContainer.new()
+	scroll.name = "S"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	root.add_child(scroll)
+	var v := VBoxContainer.new()
+	v.name = "V"
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 8)
+	scroll.add_child(v)
+	var actions := VBoxContainer.new()
+	actions.name = "A"
+	actions.add_theme_constant_override("separation", 8)
+	root.add_child(actions)
 	return p
 
 

@@ -111,4 +111,7 @@ func spawn_tracer(from: Vector3, to: Vector3, color: Color = Color(1.0, 0.72, 0.
 		return
 	mi.look_at(to, Vector3.UP)
 	mi.rotate_object_local(Vector3.RIGHT, PI * 0.5)
-	get_tree().create_timer(0.08).timeout.connect(mi.queue_free)
+	get_tree().create_timer(0.08).timeout.connect(func() -> void:
+		if is_instance_valid(mi):
+			mi.queue_free()
+	)

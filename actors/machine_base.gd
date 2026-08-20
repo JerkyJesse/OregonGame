@@ -64,6 +64,11 @@ func _ready() -> void:
 	set_notify_transform(true)
 
 
+func _exit_tree() -> void:
+	set_physics_process(false)
+	set_process(false)
+
+
 func _ensure_cockpit() -> void:
 	_cockpit = get_node_or_null("Cockpit")
 	if _cockpit == null:
@@ -424,6 +429,8 @@ func _local_pilot() -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	if not is_inside_tree() or get_world_3d() == null:
+		return
 	if not alive and not boarded:
 		if hangar_preview:
 			velocity = Vector3.ZERO
@@ -552,6 +559,8 @@ func _try_fire() -> void:
 
 
 func _hitscan(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
+	if not is_inside_tree() or get_world_3d() == null or get_world_3d().direct_space_state == null:
+		return
 	var query := PhysicsRayQueryParameters3D.create(from, to)
 	query.exclude = [get_rid()]
 	query.collision_mask = 7
@@ -562,7 +571,10 @@ func _hitscan(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
 		var col: Object = hit.collider
 		if col is Node:
 			_apply_hit(col as Node, dmg, hit.position)
-	Fx.spawn_tracer(from + (-_camera.global_transform.basis.z) * 1.4, end, _tracer_color(kind))
+	var muzzle := from
+	if _camera and _camera.is_inside_tree():
+		muzzle = from + (-_camera.global_transform.basis.z) * 1.4
+	Fx.spawn_tracer(muzzle, end, _tracer_color(kind))
 
 
 func _tracer_color(kind: String) -> Color:
@@ -674,7 +686,7 @@ func _ai_move(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 	var target := _ai_target()
-	if patrol.size() >= 2 and (target == Vector3.ZERO or global_position.distance_to(target) > 48.0):
+	if patrol.size() >= 2 and (target == Vector3.ZERO or global_position.distance_to(target) > 36.0):
 		var p: Vector3 = patrol[_patrol_i]
 		var offset := Vector3(p.x - global_position.x, 0.0, p.z - global_position.z)
 		if offset.length() < 3.0:
@@ -693,17 +705,18 @@ func _ai_move(delta: float) -> void:
 			velocity.x = 0.0
 			velocity.z = 0.0
 		_ai_fire -= delta
-		if _ai_fire <= 0.0 and offset.length() < 55.0:
+		if _ai_fire <= 0.0 and offset.length() < 28.0:
 			_ai_fire = 0.35
 			_ai_shoot(target)
 	else:
 		velocity.x = 0.0
 		velocity.z = 0.0
-	move_and_slide()
+	if is_inside_tree() and get_world_3d() != null:
+		move_and_slide()
 
 
 func _look_flat(offset: Vector3) -> void:
-	if offset.length() < 0.1:
+	if not is_inside_tree() or offset.length() < 0.1:
 		return
 	look_at(global_position + offset.normalized(), Vector3.UP)
 	rotation.x = 0.0

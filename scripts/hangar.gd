@@ -24,6 +24,17 @@ func _ready() -> void:
 	_park_frames()
 	_spawn_vendor()
 	_spawn_range()
+	if has_node("DeployConsole"):
+		var lab := Label3D.new()
+		lab.text = "DEPLOY"
+		lab.position = Vector3(0, 2.4, 0)
+		lab.font_size = 64
+		lab.modulate = Color(0.3, 0.9, 1.0)
+		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		$DeployConsole.add_child(lab)
+	if has_node("Scavenger"):
+		$Scavenger.position.y = 1.1
+		$Scavenger.set("spawn_point", $Scavenger.position)
 	if RunState.last_message != "":
 		Hud.show_banner(RunState.last_message)
 		RunState.last_message = ""

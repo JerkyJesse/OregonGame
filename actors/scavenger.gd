@@ -13,6 +13,8 @@ var boarded: bool = false
 var crawling: bool = false
 var _fire_cd: float = 0.0
 var peer_id: int = 1
+var spawn_point: Vector3 = Vector3.ZERO
+var spawn_protect: float = 0.0
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _ray: RayCast3D = $Camera3D/InteractRay
@@ -23,7 +25,12 @@ var peer_id: int = 1
 func _ready() -> void:
 	add_to_group("player")
 	add_to_group("scavenger")
+	floor_snap_length = 0.5
 	set_multiplayer_authority(peer_id)
+	if spawn_point == Vector3.ZERO:
+		spawn_point = global_position
+	if RunState.in_raid:
+		spawn_protect = 5.0
 	call_deferred("_boot_camera")
 
 
@@ -80,9 +87,10 @@ func _local() -> bool:
 
 
 func _physics_process(delta: float) -> void:
-	if boarded or not Hud.gameplay_active:
+	if boarded or not Hud.gameplay_active or not is_inside_tree() or get_world_3d() == null:
 		return
 	_fire_cd = maxf(_fire_cd - delta, 0.0)
+	spawn_protect = maxf(spawn_protect - delta, 0.0)
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 	elif Input.is_action_just_pressed("jump") and not Hud.ui_busy and _local():
@@ -106,7 +114,11 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 	move_and_slide()
 
-	if global_position.y < -20.0:
+	if global_position.y < -8.0:
+		if RunState.in_raid and RunState.raid_timer < 4.0:
+			global_position = spawn_point
+			velocity = Vector3.ZERO
+			return
 		take_damage(999.0)
 		return
 
@@ -275,7 +287,7 @@ func _rpc_scav_shot(from: Vector3, to: Vector3) -> void:
 
 
 func take_damage(amount: float) -> void:
-	if boarded or not RunState.in_raid:
+	if boarded or not RunState.in_raid or spawn_protect > 0.0:
 		return
 	if not _local() and NetSession.is_online():
 		return

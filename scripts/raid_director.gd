@@ -13,6 +13,7 @@ const AI_SCENE := preload("res://actors/ai_scavenger.tscn")
 
 
 static func begin(world: Node3D, map_id: String) -> void:
+	RunState.raid_map = map_id
 	RunState.begin_raid()
 	Hud.enter_gameplay()
 	Hud.reset_for_scene()
@@ -36,20 +37,24 @@ static func begin(world: Node3D, map_id: String) -> void:
 	_spawn_events(world, map_id)
 	_deploy_player(world, map_id)
 	_net_spawns(world)
-	if NetSession.is_online() and NetSession.is_host():
-		world.multiplayer.peer_connected.connect(func(id: int) -> void:
-			_spawn_proxy(world, id)
-			Hud.show_banner(WorldLore.peer_drop_banner(id))
-		)
 
 
-static func spawn_loot(world: Node, part: Dictionary, pos: Vector3) -> void:
+static func spawn_loot(world: Node, part: Dictionary, pos: Vector3, drop_name: String = "") -> void:
 	if part.is_empty() or world == null:
 		return
 	var drop: Node3D = LOOT_SCENE.instantiate()
+	if drop_name != "":
+		drop.name = drop_name
 	drop.set("part", part)
 	world.add_child(drop)
 	drop.global_position = pos + Vector3(0, 0.6, 0)
+
+
+static func emit_loot(world: Node, part: Dictionary, pos: Vector3) -> void:
+	if world != null and world.has_method("spawn_loot"):
+		world.call("spawn_loot", part, pos)
+	else:
+		spawn_loot(world, part, pos)
 
 
 static func update_ash_objective(world: Node3D) -> void:
@@ -102,7 +107,7 @@ static func _setup_existing(world: Node3D) -> void:
 			)
 		if heavy.has_signal("component_dropped"):
 			heavy.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-				spawn_loot(world, part, pos)
+				emit_loot(world, part, pos)
 			)
 		_attach_climb(heavy)
 		_attach_core(heavy)
@@ -122,7 +127,7 @@ static func _setup_ash_yard(world: Node3D) -> void:
 	med.set("hull", 0.0)
 	if med.has_signal("component_dropped"):
 		med.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-			spawn_loot(world, part, pos)
+			emit_loot(world, part, pos)
 		)
 	_attach_core(med)
 	if RunState.raid_mode == "scav_wave":
@@ -147,7 +152,7 @@ static func _setup_pipeline(world: Node3D) -> void:
 	med.set("hull", 0.0)
 	if med.has_signal("component_dropped"):
 		med.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-			spawn_loot(world, part, pos)
+			emit_loot(world, part, pos)
 		)
 	var hv: Node3D = HEAVY_SCENE.instantiate()
 	hv.position = Vector3(18, 0, -10)
@@ -161,7 +166,7 @@ static func _setup_pipeline(world: Node3D) -> void:
 		)
 	if hv.has_signal("component_dropped"):
 		hv.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-			spawn_loot(world, part, pos)
+			emit_loot(world, part, pos)
 		)
 	_attach_core(med)
 	_attach_climb(hv)
@@ -231,25 +236,45 @@ static func _breakable(world: Node3D, pos: Vector3, size: Vector3) -> void:
 	world.add_child(b)
 
 
+static func player_node_name(id: int) -> String:
+	return "Scavenger_%d" % id
+
+
+static func spawn_proxy(world: Node3D, id: int) -> void:
+	_spawn_proxy(world, id)
+
+
+static func _spawn_pos(map_id: String, peer_id: int) -> Vector3:
+	var slot := float((peer_id - 1) % 8)
+	var base := Vector3(-32, 1.2, 10)
+	match RunState.faction:
+		"corporate":
+			base = Vector3(22, 8.6, 0) if map_id == "pipeline" else Vector3(-38, 1.2, -22)
+		"remnant":
+			base = Vector3(-30, 1.2, -16) if map_id == "pipeline" else Vector3(-40, 1.2, -8)
+		"warlord":
+			base = Vector3(16, 1.2, 28) if map_id == "pipeline" else Vector3(-36, 1.2, 22)
+		_:
+			base = Vector3(-22, 1.2, -10) if map_id == "pipeline" else Vector3(-42, 1.2, 16)
+	if RunState.raid_mode == "late_drop" and not NetSession.is_host():
+		base = Vector3(-24, 1.2, 8) if map_id == "pipeline" else Vector3(-42, 1.2, 10)
+	base.z += slot * 1.6
+	return base
+
+
 static func _deploy_player(world: Node3D, map_id: String) -> void:
 	var scav: Scavenger = world.get_node_or_null("Scavenger") as Scavenger
 	if scav == null:
-		return
-	if NetSession.is_online():
-		var local := world.multiplayer.get_unique_id()
-		scav.peer_id = local
-		scav.set_multiplayer_authority(local)
-	match RunState.faction:
-		"corporate":
-			scav.position = Vector3(22, 8.4, 0) if map_id == "pipeline" else Vector3(30, 0.1, -8)
-		"remnant":
-			scav.position = Vector3(-30, 0.1, -16)
-		"warlord":
-			scav.position = Vector3(16, 0.1, 28)
-		_:
-			scav.position = Vector3(-22, 0.2, -10) if map_id == "pipeline" else Vector3(-32, 0.1, 10)
-	if RunState.raid_mode == "late_drop" and not NetSession.is_host():
-		scav.position = Vector3(-28, 0.2, 8)
+		scav = SCAV_SCENE.instantiate()
+		world.add_child(scav)
+	var local := NetSession.local_id()
+	scav.name = player_node_name(local)
+	scav.peer_id = local
+	scav.set_multiplayer_authority(local)
+	var spawn := _spawn_pos(map_id, local)
+	scav.position = spawn
+	scav.set("spawn_point", spawn)
+	scav.set("spawn_protect", 5.0)
 	if RunState.deploy_scale == "light" or RunState.deploy_scale == "armor":
 		if world.has_node("LightMech"):
 			var light: Node = world.get_node("LightMech")
@@ -288,17 +313,18 @@ static func _net_spawns(world: Node3D) -> void:
 static func _spawn_proxy(world: Node3D, id: int) -> void:
 	if not is_instance_valid(world):
 		return
-	if id == world.multiplayer.get_unique_id():
+	if id == NetSession.local_id():
 		return
-	var n := "Scavenger_%d" % id
+	var n := player_node_name(id)
 	if world.has_node(n):
 		return
 	var extra: Node3D = SCAV_SCENE.instantiate()
 	extra.name = n
 	extra.set("peer_id", id)
-	extra.set_multiplayer_authority(id)
-	extra.position = Vector3(-28, 0.2, 8 + float(id % 5))
+	extra.position = _spawn_pos(RunState.raid_map, id)
 	world.add_child(extra)
+	extra.set_multiplayer_authority(id)
+	Hud.show_banner(WorldLore.peer_drop_banner(id))
 
 
 static func _on_machine_died(world: Node3D, pos: Vector3) -> void:

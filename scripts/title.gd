@@ -2,6 +2,8 @@ extends Control
 
 var _crawl_layer: Control
 var _leaving := false
+var _status: Label
+var _ip: LineEdit
 
 
 func _enter_tree() -> void:
@@ -16,6 +18,11 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
 	call_deferred("_focus_menu")
+	var args := OS.get_cmdline_user_args()
+	if args.has("--host-raid"):
+		call_deferred("_host")
+	elif args.has("--join-raid"):
+		call_deferred("_join")
 
 
 func _build() -> void:
@@ -24,41 +31,70 @@ func _build() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(bg)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
-	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(640, 0)
-	v.add_theme_constant_override("separation", 12)
-	v.mouse_filter = Control.MOUSE_FILTER_STOP
-	center.add_child(v)
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 48)
+	margin.add_theme_constant_override("margin_right", 48)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_bottom", 28)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(margin)
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 10)
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(root)
 	var title := Label.new()
 	title.text = WorldLore.TITLE
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 34)
 	title.add_theme_color_override("font_color", Color(0.95, 0.62, 0.22))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(title)
+	root.add_child(title)
 	var sub := Label.new()
 	sub.text = WorldLore.TAGLINE
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_color_override("font_color", Color(0.78, 0.72, 0.62))
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(sub)
+	root.add_child(sub)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(scroll)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 10)
+	scroll.add_child(v)
 	_add_button(v, "NEW GAME", _new_game)
 	_add_button(v, "ENTER HANGAR", _enter_hangar)
 	_add_button(v, "QUICK DEPLOY  (Ash Yard 7, scavenger)", _quick)
-	_add_button(v, "HOST RAID  :7777", _host)
-	_add_button(v, "JOIN 127.0.0.1 AS SCAV WAVE", _join)
+	_add_button(v, "HOST RAID  :%d" % NetSession.PORT, _host)
+	var ip_row := HBoxContainer.new()
+	ip_row.add_theme_constant_override("separation", 8)
+	v.add_child(ip_row)
+	var ip_lab := Label.new()
+	ip_lab.text = "Join IP"
+	ip_row.add_child(ip_lab)
+	_ip = LineEdit.new()
+	_ip.text = NetSession.join_ip
+	_ip.placeholder_text = "host LAN IP"
+	_ip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ip_row.add_child(_ip)
+	_add_button(v, "JOIN FRIEND", _join)
 	_add_button(v, "QUIT", _quit)
+	_status = Label.new()
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.add_theme_color_override("font_color", Color(0.7, 0.82, 0.78))
+	_status.text = "Host, then friends type your LAN IP and Join. This PC: %s" % NetSession.lan_ip_text()
+	root.add_child(_status)
 	var foot := Label.new()
 	foot.text = "Click a button or use arrows + Enter.  In-game: WASD  mouse look  E interact  F board  G hold hotwire  LMB fire"
 	foot.autowrap_mode = TextServer.AUTOWRAP_WORD
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(foot)
+	root.add_child(foot)
 
 
 func _add_button(box: VBoxContainer, text: String, cb: Callable) -> void:
@@ -69,19 +105,30 @@ func _add_button(box: VBoxContainer, text: String, cb: Callable) -> void:
 	box.add_child(b)
 
 
+func _set_status(text: String) -> void:
+	if _status:
+		_status.text = text
+
+
 func _focus_menu() -> void:
 	Hud.freeze_for_title()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _crawl_layer != null:
 		return
 	for child in get_children():
-		if child is CenterContainer:
-			for box in child.get_children():
-				if box is VBoxContainer:
-					for b in box.get_children():
-						if b is Button:
-							(b as Button).grab_focus()
-							return
+		if child is MarginContainer:
+			_grab_first_button(child)
+			return
+
+
+func _grab_first_button(n: Node) -> void:
+	if n is Button:
+		(n as Button).grab_focus()
+		return
+	for c in n.get_children():
+		_grab_first_button(c)
+		if get_viewport() and get_viewport().gui_get_focus_owner() is Button:
+			return
 
 
 func _new_game() -> void:
@@ -101,15 +148,18 @@ func _show_crawl() -> void:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_crawl_layer.add_child(bg)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_crawl_layer.add_child(center)
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 56)
+	margin.add_theme_constant_override("margin_right", 56)
+	margin.add_theme_constant_override("margin_top", 32)
+	margin.add_theme_constant_override("margin_bottom", 32)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_crawl_layer.add_child(margin)
 	var v := VBoxContainer.new()
-	v.custom_minimum_size = Vector2(720, 0)
-	v.add_theme_constant_override("separation", 16)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.add_child(v)
+	v.add_theme_constant_override("separation", 14)
+	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(v)
 	var head := Label.new()
 	head.text = WorldLore.TITLE
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -117,13 +167,18 @@ func _show_crawl() -> void:
 	head.add_theme_color_override("font_color", Color(0.95, 0.62, 0.22))
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(head)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(scroll)
 	var body := Label.new()
 	body.text = WorldLore.crawl_text()
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD
 	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.add_theme_color_override("font_color", Color(0.82, 0.76, 0.66))
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(body)
+	scroll.add_child(body)
 	var hint := Label.new()
 	hint.text = WorldLore.CRAWL_HINT
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -132,7 +187,7 @@ func _show_crawl() -> void:
 	v.add_child(hint)
 	var go := Button.new()
 	go.text = "CONTINUE"
-	go.custom_minimum_size = Vector2(0, 36)
+	go.custom_minimum_size = Vector2(0, 40)
 	go.pressed.connect(_finish_crawl)
 	v.add_child(go)
 	go.grab_focus()
@@ -178,8 +233,14 @@ func _quick() -> void:
 
 func _host() -> void:
 	if NetSession.host_game() != OK:
+		_set_status(NetSession.last_error)
 		return
-	_quick()
+	RunState.deploy_scale = "scavenger"
+	RunState.raid_map = "ash_yard"
+	RunState.raid_mode = "combat"
+	_set_status("Hosting %s:%d — launching Ash Yard." % [NetSession.lan_ip_text(), NetSession.PORT])
+	print("HOST_READY ", NetSession.lan_ip_text(), ":", NetSession.PORT)
+	NetSession.start_raid("res://scenes/raid.tscn")
 
 
 func _join() -> void:
@@ -187,12 +248,25 @@ func _join() -> void:
 
 
 func _join_async() -> void:
-	var err := await NetSession.join_and_wait("127.0.0.1")
-	if err != OK:
+	var ip := "127.0.0.1"
+	if _ip:
+		ip = _ip.text.strip_edges()
+	_set_status("Connecting to %s…" % ip)
+	print("JOIN_START ", ip)
+	var err := await NetSession.join_and_wait(ip)
+	if not is_inside_tree():
+		print("JOIN_ABORTED scene gone")
 		return
+	if err != OK:
+		print("JOIN_FAIL ", NetSession.last_error)
+		_set_status(NetSession.last_error if NetSession.last_error != "" else "Join failed.")
+		return
+	print("JOIN_OK id=", NetSession.local_id())
 	RunState.deploy_scale = "scavenger"
 	RunState.raid_mode = "late_drop"
-	get_tree().change_scene_to_file("res://scenes/raid.tscn")
+	_set_status("Joined. Waiting for host to launch the raid…")
+	if NetSession.is_online() and not NetSession.is_host():
+		NetSession.request_raid.rpc_id(1)
 
 
 func _quit() -> void:
