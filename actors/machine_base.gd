@@ -53,7 +53,7 @@ func _ready() -> void:
 	if power_armor:
 		add_to_group("power_armor")
 	collision_layer = 4
-	collision_mask = 5
+	collision_mask = 7
 	_base_hull = hull_max
 	hull = hull_max
 	_ensure_cockpit()
@@ -128,6 +128,7 @@ func _ensure_hardpoints() -> void:
 			mi.mesh = box
 			mi.position = offsets.get(slot, Vector3.ZERO)
 			root.add_child(mi)
+		_ensure_slot_hotspot(slot, offsets.get(slot, Vector3.ZERO))
 
 
 func _init_sections() -> void:
@@ -172,6 +173,24 @@ func seed_wreck_parts(ids: Array) -> void:
 	apply_loadout()
 
 
+func _ensure_slot_hotspot(slot: String, pos: Vector3) -> void:
+	for n in get_children():
+		if n is SlotHotspot and str(n.get("slot")) == slot:
+			return
+	var spot := Area3D.new()
+	spot.name = "Slot_%s" % slot
+	spot.set_script(load("res://actors/slot_hotspot.gd"))
+	spot.set("slot", slot)
+	add_child(spot)
+	spot.position = pos
+	var col := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	var span := clampf(cockpit_height * 0.28, 1.3, 5.2)
+	sh.size = Vector3(span, span * 0.7, span)
+	col.shape = sh
+	spot.add_child(col)
+
+
 func apply_loadout() -> void:
 	if equipped.is_empty():
 		_copy_hangar_loadout()
@@ -185,23 +204,11 @@ func apply_loadout() -> void:
 		shield_hp = sm
 	var paint := RunState.paint_color()
 	for slot in RunState.SLOTS:
-		var node := get_node_or_null("Hardpoints/" + slot)
-		if node == null or not node is MeshInstance3D:
-			continue
-		var mesh := node as MeshInstance3D
 		var part: Variant = equipped.get(slot, {})
 		var broken := float(section_hp.get(slot, 100.0)) <= 0.0
-		if broken:
-			mesh.visible = false
-			continue
-		if part is Dictionary and not (part as Dictionary).is_empty():
-			mesh.visible = true
-			var c: Array = part.get("albedo", [0.8, 0.3, 0.1])
-			_tint(mesh, Color(float(c[0]), float(c[1]), float(c[2])), false)
-		else:
-			mesh.visible = hangar_preview
-			if hangar_preview:
-				_tint(mesh, Color(0.25, 0.85, 1.0, 0.4), true)
+		var filled := part is Dictionary and not (part as Dictionary).is_empty()
+		_rebuild_kit(slot, part if filled else {}, broken)
+	_apply_limb_visuals()
 	for child in get_children():
 		if child is MeshInstance3D and str(child.name) in ["Torso", "Head", "ArmL", "ArmR", "LegL", "LegR", "Cab", "Bed"]:
 			if hangar_preview or boarded or not disabled:
@@ -255,6 +262,121 @@ func _tint(mesh: MeshInstance3D, color: Color, translucent: bool) -> void:
 		mesh.material_override = LOOK.visor_mat(color if translucent else Color(1.0, 0.5, 0.12))
 		return
 	mesh.material_override = LOOK.paint_mat(color, translucent)
+
+
+func _rebuild_kit(slot: String, part: Dictionary, broken: bool) -> void:
+	var root := get_node_or_null("Hardpoints")
+	if root == null:
+		return
+	var old := root.get_node_or_null("Kit_%s" % slot)
+	if old:
+		old.queue_free()
+	var marker := root.get_node_or_null(slot) as MeshInstance3D
+	if marker:
+		marker.visible = hangar_preview and part.is_empty() and not broken
+		if marker.visible:
+			_tint(marker, Color(0.25, 0.85, 1.0, 0.4), true)
+	if broken or part.is_empty():
+		return
+	var kit := Node3D.new()
+	kit.name = "Kit_%s" % slot
+	if marker:
+		kit.position = marker.position
+	root.add_child(kit)
+	_build_part_mesh(kit, part)
+
+
+func _part_color(part: Dictionary) -> Color:
+	var c: Variant = part.get("albedo", [0.8, 0.3, 0.1])
+	if c is Array and (c as Array).size() >= 3:
+		return Color(float(c[0]), float(c[1]), float(c[2]))
+	if c is Color:
+		return c
+	return Color(0.8, 0.35, 0.12)
+
+
+func _build_part_mesh(kit: Node3D, part: Dictionary) -> void:
+	var col := _part_color(part)
+	var id := str(part.get("id", ""))
+	var kind := str(part.get("weapon_kind", ""))
+	var mul := clampf(cockpit_height / 7.4, 0.65, 2.6)
+	if bool(part.get("is_weapon", false)):
+		match kind:
+			"energy":
+				_kit_cyl(kit, Vector3(0, 0, 0.85 * mul), 1.9 * mul, 0.13 * mul, col, Vector3(90, 0, 0), 1.8)
+			"missile":
+				_kit_box(kit, Vector3(0, 0, 0.45 * mul), Vector3(0.75 * mul, 0.42 * mul, 1.15 * mul), col, 0.25)
+				_kit_cyl(kit, Vector3(-0.18 * mul, 0, 0.95 * mul), 0.7 * mul, 0.08 * mul, col.lightened(0.1), Vector3(90, 0, 0), 0.4)
+				_kit_cyl(kit, Vector3(0.18 * mul, 0, 0.95 * mul), 0.7 * mul, 0.08 * mul, col.lightened(0.1), Vector3(90, 0, 0), 0.4)
+			"melee":
+				_kit_box(kit, Vector3(0, 0, 1.15 * mul), Vector3(0.16 * mul, 0.16 * mul, 2.5 * mul), col, 0.9)
+			_:
+				_kit_box(kit, Vector3(0, 0, 1.0 * mul), Vector3(0.28 * mul, 0.28 * mul, 2.3 * mul), col, 0.45)
+				_kit_box(kit, Vector3(0, 0.18 * mul, 0.15 * mul), Vector3(0.5 * mul, 0.2 * mul, 0.7 * mul), col.darkened(0.25), 0.0)
+		return
+	if id == "armor_plate" or id == "heavy_plating":
+		_kit_box(kit, Vector3.ZERO, Vector3(1.15 * mul, 0.14 * mul, 0.85 * mul), col, 0.0)
+	elif id == "reactor_core" or id == "compact_reactor":
+		_kit_cyl(kit, Vector3.ZERO, 0.7 * mul, 0.28 * mul, col, Vector3.ZERO, 1.4)
+	elif id == "jump_jets":
+		_kit_cyl(kit, Vector3(-0.28 * mul, 0, 0), 0.6 * mul, 0.11 * mul, col, Vector3(90, 0, 0), 1.5)
+		_kit_cyl(kit, Vector3(0.28 * mul, 0, 0), 0.6 * mul, 0.11 * mul, col, Vector3(90, 0, 0), 1.5)
+	elif id == "shield_emitter":
+		_kit_box(kit, Vector3.ZERO, Vector3(0.7 * mul, 0.7 * mul, 0.18 * mul), col, 1.6)
+	elif id == "cooler_pack":
+		_kit_box(kit, Vector3.ZERO, Vector3(0.55 * mul, 0.4 * mul, 0.4 * mul), col, 0.3)
+	elif id == "sensor_suite" or id == "filament_veil":
+		_kit_cyl(kit, Vector3(0, 0.12 * mul, 0), 0.18 * mul, 0.28 * mul, col, Vector3.ZERO, 1.1)
+	else:
+		_kit_box(kit, Vector3.ZERO, Vector3(0.5 * mul, 0.35 * mul, 0.45 * mul), col, 0.15)
+
+
+func _kit_box(kit: Node3D, pos: Vector3, size: Vector3, color: Color, emit: float = 0.0) -> void:
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	mi.mesh = box
+	mi.position = pos
+	mi.material_override = LOOK.emit_surface(color, emit) if emit > 0.0 else LOOK.paint_mat(color)
+	kit.add_child(mi)
+
+
+func _kit_cyl(kit: Node3D, pos: Vector3, height: float, radius: float, color: Color, rot: Vector3, emit: float = 0.0) -> void:
+	var mi := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = radius
+	cyl.bottom_radius = radius
+	cyl.height = height
+	cyl.radial_segments = 10
+	mi.mesh = cyl
+	mi.position = pos
+	mi.rotation_degrees = rot
+	mi.material_override = LOOK.emit_surface(color, emit) if emit > 0.0 else LOOK.paint_mat(color)
+	kit.add_child(mi)
+
+
+func _apply_limb_visuals() -> void:
+	var legs := float(section_hp.get("legs", 100.0)) > 0.0
+	var al := float(section_hp.get("arm_l", 100.0)) > 0.0
+	var ar := float(section_hp.get("arm_r", 100.0)) > 0.0
+	_set_named_visible("ArmL", al)
+	_set_named_visible("ArmR", ar)
+	_set_named_visible("LegL", legs)
+	_set_named_visible("LegR", legs)
+	var body := get_node_or_null("Body")
+	if body:
+		var bl := body.get_node_or_null("ArmL")
+		if bl is MeshInstance3D:
+			(bl as MeshInstance3D).visible = al
+		var br := body.get_node_or_null("ArmR")
+		if br is MeshInstance3D:
+			(br as MeshInstance3D).visible = ar
+
+
+func _set_named_visible(n: String, on: bool) -> void:
+	var node := get_node_or_null(n)
+	if node is MeshInstance3D:
+		(node as MeshInstance3D).visible = on
 
 
 func get_interact_label() -> String:
@@ -348,8 +470,10 @@ func hold_hack_core(scav: Node, delta: float) -> bool:
 		if scav is Scavenger:
 			if RunState.add_carry(part, true):
 				Hud.refresh_carry()
+				Hud.show_banner(WorldLore.core_secured_banner())
 			elif RunState.add_carry(part):
 				Hud.refresh_carry()
+				Hud.show_banner(WorldLore.core_carry_banner())
 		Hud.show_banner(WorldLore.first_voice_hack())
 		Hud.set_sensors(WorldLore.first_voice_hack())
 		Fx.play("alarm")
@@ -419,10 +543,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _camera:
 			_camera.rotation.x = _pitch
 	if event.is_action_pressed("ui_cancel"):
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		else:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		Hud.toggle_pause()
+		get_viewport().set_input_as_handled()
 
 
 func _local_pilot() -> bool:
@@ -504,7 +626,23 @@ func _current_speed() -> float:
 		mul *= 0.45
 	if power_armor:
 		mul *= 1.12
+	mul *= _leg_part_mul()
 	return move_speed * mul * RunState.cap(scale_id, "speed")
+
+
+func _leg_part_mul() -> float:
+	var legs: Variant = equipped.get("legs", {})
+	if not (legs is Dictionary) or (legs as Dictionary).is_empty():
+		return 1.0
+	if float(section_hp.get("legs", 1.0)) <= 0.0:
+		return 1.0
+	var id := str((legs as Dictionary).get("id", ""))
+	var cond := float((legs as Dictionary).get("condition", 1.0))
+	if id == "myomer_strand":
+		return 1.0 + 0.16 * cond
+	if id == "actuator_leg":
+		return 1.0 + 0.08 * cond
+	return 1.0
 
 
 func _cool_rate() -> float:

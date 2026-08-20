@@ -5,6 +5,8 @@ const LOOK := preload("res://world/WorldLook.gd")
 
 var ui_busy: bool = false
 var gameplay_active: bool = false
+var paused: bool = false
+var _pause: PanelContainer
 var _picker_slot: String = ""
 var _picker_scale: String = "light"
 var _picker_uids: Array[String] = []
@@ -41,6 +43,7 @@ var _vendor: PanelContainer
 var _bay: PanelContainer
 var _repair: PanelContainer
 var _filter_row: HBoxContainer
+var _bay_hold: String = ""
 
 
 func _ready() -> void:
@@ -69,6 +72,10 @@ func _ready() -> void:
 func freeze_for_title() -> void:
 	gameplay_active = false
 	ui_busy = false
+	paused = false
+	if _pause:
+		_pause.queue_free()
+		_pause = null
 	visible = false
 	set_process(false)
 	close_all_ui()
@@ -159,6 +166,7 @@ func _process(delta: float) -> void:
 		_timer.visible = false
 	if _net:
 		_net.text = "%s   %s   TIER %d   %d cr" % [NetSession.status_text(), WorldLore.faction_name(RunState.faction).to_upper(), RunState.hangar_tier, RunState.credits]
+	_tick_bay_hold(delta)
 
 
 func reset_for_scene() -> void:
@@ -241,7 +249,7 @@ func refresh_carry() -> void:
 	if names.is_empty():
 		_carry.text = "CARRY  empty  (lost on death)  WT %.0f/%.0f" % [RunState.carry_weight(), RunState.carry_limit()]
 	else:
-		_carry.text = "CARRY  " + ", ".join(names) + "   WT %.0f/%.0f" % [RunState.carry_weight(), RunState.carry_limit()]
+		_carry.text = "CARRY  " + ", ".join(names) + "   WT %.0f/%.0f   [Q] dump" % [RunState.carry_weight(), RunState.carry_limit()]
 
 
 func _stash_summary() -> String:
@@ -316,16 +324,19 @@ func open_machine_bay(mech: Node) -> void:
 	if not bool(mech.get("core_taken")):
 		var hack := Button.new()
 		hack.text = WorldLore.bay_hack_label()
-		hack.button_down.connect(_bay_hack_start)
+		hack.button_down.connect(_bay_hold_start.bind("hack"))
+		hack.button_up.connect(_bay_hold_stop)
 		box.add_child(hack)
 	if str(mech.get("scale_id")) == "heavy":
 		var pry := Button.new()
-		pry.text = "Pry plate (alerts the heavy)"
-		pry.pressed.connect(_bay_pry)
+		pry.text = "Hold pry plate (alerts the heavy)"
+		pry.button_down.connect(_bay_hold_start.bind("pry"))
+		pry.button_up.connect(_bay_hold_stop)
 		box.add_child(pry)
 	var hw := Button.new()
-	hw.text = "Attempt hotwire"
-	hw.pressed.connect(_bay_hotwire)
+	hw.text = "Hold hotwire"
+	hw.button_down.connect(_bay_hold_start.bind("hotwire"))
+	hw.button_up.connect(_bay_hold_stop)
 	box.add_child(hw)
 	if not bool(mech.get("disabled")) and bool(mech.get("alive")) and not bool(mech.get("boarded")):
 		var board := Button.new()
@@ -387,6 +398,40 @@ func _remove_carry(uid: String) -> void:
 		if str(RunState.secure_carry[i].get("uid", "")) == uid:
 			RunState.secure_carry.remove_at(i)
 			return
+
+
+func _bay_hold_start(kind: String) -> void:
+	_bay_hold = kind
+
+
+func _bay_hold_stop() -> void:
+	_bay_hold = ""
+	if _bay_mech and is_instance_valid(_bay_mech) and _bay_mech.has_method("reset_channels"):
+		_bay_mech.call("reset_channels")
+
+
+func _tick_bay_hold(delta: float) -> void:
+	if _bay_hold == "" or _bay_mech == null or not is_instance_valid(_bay_mech):
+		return
+	var scav := _local_scav()
+	if scav == null:
+		return
+	match _bay_hold:
+		"hack":
+			if _bay_mech.has_method("hold_hack_core"):
+				if bool(_bay_mech.call("hold_hack_core", scav, delta)):
+					_bay_hold = ""
+					open_machine_bay(_bay_mech)
+		"pry":
+			if _bay_mech.has_method("hold_pry"):
+				_bay_mech.call("hold_pry", scav, delta)
+				refresh_carry()
+		"hotwire":
+			if _bay_mech.has_method("hold_hotwire"):
+				_bay_mech.call("hold_hotwire", scav, delta)
+				if bool(_bay_mech.get("boarded")):
+					_bay_hold = ""
+					close_all_ui()
 
 
 func _bay_hack_start() -> void:
@@ -457,12 +502,85 @@ func close_slot_picker() -> void:
 	close_all_ui()
 
 
+func toggle_pause() -> void:
+	if not gameplay_active:
+		return
+	if paused:
+		_close_pause()
+		return
+	if ui_busy:
+		close_all_ui()
+		return
+	_open_pause()
+
+
+func _open_pause() -> void:
+	paused = true
+	ui_busy = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if _pause:
+		_pause.queue_free()
+	_pause = _panel(WorldLore.pause_title())
+	add_child(_pause)
+	var box: VBoxContainer = _pause.get_node("M/Root/S/V")
+	_add_label(box, WorldLore.pause_blurb())
+	var actions: VBoxContainer = _pause.get_node("M/Root/A")
+	var resume := Button.new()
+	resume.text = "RESUME"
+	resume.pressed.connect(toggle_pause)
+	actions.add_child(resume)
+	if RunState.in_raid:
+		var abort := Button.new()
+		abort.text = "ABORT TO NEW DODGE"
+		abort.pressed.connect(_abort_raid)
+		actions.add_child(abort)
+	var title := Button.new()
+	title.text = "TITLE"
+	title.pressed.connect(_quit_title)
+	actions.add_child(title)
+
+
+func _close_pause() -> void:
+	paused = false
+	if _pause:
+		_pause.queue_free()
+		_pause = null
+	ui_busy = false
+	if gameplay_active and _in_gameplay_scene():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _abort_raid() -> void:
+	_close_pause()
+	RunState.fail_raid(WorldLore.abort_raid_banner())
+
+
+func _quit_title() -> void:
+	paused = false
+	if _pause:
+		_pause.queue_free()
+		_pause = null
+	ui_busy = false
+	if RunState.in_raid:
+		RunState.raid_carry.clear()
+		RunState.in_raid = false
+		RunState.save_state()
+	freeze_for_title()
+	get_tree().change_scene_to_file("res://scenes/title.tscn")
+
+
 func close_all_ui() -> void:
+	if paused:
+		_close_pause()
+		return
 	ui_busy = false
 	_from_loadout = false
 	_picker_slot = ""
 	_picker_uids.clear()
 	_bay_mech = null
+	_bay_hold = ""
 	if _slot_panel:
 		_slot_panel.visible = false
 	if _loadout_panel:
@@ -867,13 +985,7 @@ func open_vendor() -> void:
 	add_child(_vendor)
 	var box: VBoxContainer = _vendor.get_node("M/Root/S/V")
 	_add_label(box, WorldLore.vendor_blurb())
-	var offers := [
-		["filter_canister", 22],
-		["armor_plate", 25],
-		["myomer_strand", 30],
-		["cooler_pack", 35],
-		["sensor_suite", 70],
-	]
+	var offers := RunState.vendor_offers()
 	for o in offers:
 		var b := Button.new()
 		b.text = "%s   %d cr" % [RunState.part_display_name(str(o[0])), int(o[1])]

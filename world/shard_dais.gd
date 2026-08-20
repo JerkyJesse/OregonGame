@@ -38,14 +38,14 @@ func _process(delta: float) -> void:
 
 
 func get_interact_label() -> String:
-	return WorldLore.dais_label(core_taken or taken)
+	return WorldLore.pump_house_label(core_taken or taken)
 
 
 func interact(actor: Node) -> void:
 	if core_taken or taken:
 		return
 	if actor is Scavenger:
-		hold_hack(actor, 0.18)
+		hold_hack(actor, 0.0)
 
 
 func hold_hack(actor: Node, delta: float) -> bool:
@@ -94,6 +94,11 @@ func steal() -> Dictionary:
 	core_taken = true
 	taken = true
 	_hack = 0.0
+	Hud.set_sensors(WorldLore.first_voice_hack())
+	Fx.play("alarm")
+	var scene := get_tree().current_scene if get_tree() else null
+	if scene and scene.has_method("occupation_answer"):
+		scene.call("occupation_answer", global_position)
 	return RunState.make_part("data_core", 0.8)
 
 

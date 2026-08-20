@@ -32,6 +32,20 @@ func _ready() -> void:
 	light.light_volumetric_fog_energy = 1.6
 	add_child(light)
 	LOOK.dust(self, Vector3(42, 12, 42), Color(0.5, 0.85, 0.28, 0.14), 48)
+	var tend := Node3D.new()
+	tend.name = "Tendrils"
+	add_child(tend)
+	for i in 8:
+		var ang := TAU * float(i) / 8.0
+		var stalk := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.04
+		mesh.bottom_radius = 0.16
+		mesh.height = 2.4
+		mesh.material = LOOK.flesh_mat(LOOK.PALE, 1.6)
+		stalk.mesh = mesh
+		stalk.position = Vector3(cos(ang) * 69.0, 1.2, sin(ang) * 69.0)
+		tend.add_child(stalk)
 
 
 func _process(delta: float) -> void:
@@ -47,6 +61,15 @@ func _process(delta: float) -> void:
 		t.inner_radius = maxf(radius - 0.7, 0.5)
 		t.outer_radius = radius + 0.7
 		_ring.rotate_y(delta * 0.12)
+	var tend := get_node_or_null("Tendrils") as Node3D
+	if tend:
+		tend.rotate_y(delta * 0.08)
+		var idx := 0
+		for child in tend.get_children():
+			if child is Node3D:
+				var ang := TAU * float(idx) / 8.0 + _pulse * 0.15
+				(child as Node3D).position = Vector3(cos(ang) * radius, 1.1 + sin(_pulse * 2.0 + float(idx)) * 0.2, sin(ang) * radius)
+				idx += 1
 	LOOK.set_pale(get_parent(), clampf(1.0 - radius / 70.0, 0.0, 0.95))
 	_tick_stage()
 	var local_foot := false
@@ -108,4 +131,8 @@ func _tick_stage() -> void:
 	if _stage >= 2:
 		Hud.show_banner(WorldLore.storm_stage_band(_stage))
 		Fx.play("alarm")
+		var world := get_parent() as Node3D
+		if world:
+			RaidDirector.spawn_pale(world, Vector3(radius * 0.82, 0.2, 4.0))
+			RaidDirector.spawn_pale(world, Vector3(-radius * 0.55, 0.2, radius * 0.4))
 

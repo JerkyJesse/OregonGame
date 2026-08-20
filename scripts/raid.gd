@@ -40,6 +40,19 @@ func spawn_loot(part: Dictionary, pos: Vector3) -> void:
 		rpc_spawn_loot.rpc(part, pos, drop_name)
 
 
+func spawn_bag(parts: Array, pos: Vector3) -> void:
+	if parts.is_empty():
+		return
+	if NetSession.is_online():
+		for i in parts.size():
+			var item: Variant = parts[i]
+			if item is Dictionary:
+				spawn_loot(item, pos + Vector3(randf_range(-0.5, 0.5), 0, randf_range(-0.5, 0.5)))
+		return
+	_loot_seq += 1
+	RD.spawn_bag(self, parts, pos, "RivalBag_%d" % _loot_seq)
+
+
 @rpc("authority", "call_remote", "reliable")
 func rpc_spawn_loot(part: Dictionary, pos: Vector3, drop_name: String) -> void:
 	if not NetSession.sanity_loot(part):

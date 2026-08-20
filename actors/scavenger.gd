@@ -16,6 +16,7 @@ var _fire_cd: float = 0.0
 var peer_id: int = 1
 var spawn_point: Vector3 = Vector3.ZERO
 var spawn_protect: float = 0.0
+var interact_focus: Node = null
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _ray: RayCast3D = $Camera3D/InteractRay
@@ -88,10 +89,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		look_pitch = clampf(look_pitch - event.relative.y * MOUSE_SENS, deg_to_rad(-89.0), deg_to_rad(89.0))
 		_camera.rotation.x = look_pitch
 	if event.is_action_pressed("ui_cancel") and not Hud.ui_busy:
-		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		else:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		Hud.toggle_pause()
+		get_viewport().set_input_as_handled()
 
 
 func _local() -> bool:
@@ -161,36 +160,52 @@ func _rpc_pose(pos: Vector3, yaw: float, pitch: float) -> void:
 
 func _update_interact(delta: float) -> void:
 	if Hud.ui_busy:
+		interact_focus = null
 		return
 	if Input.is_action_just_pressed("use_item") and not boarded:
 		_try_filter()
-	if _in_extract():
-		if Input.is_action_just_pressed("board"):
-			_try_board_nearby()
-		return
+	if Input.is_action_just_pressed("dump") and not boarded:
+		_dump_part()
 	var target := _interactable()
+	interact_focus = target
 	if target:
 		Hud.set_prompt(str(target.call("get_interact_label")))
-		if Input.is_action_just_pressed("interact") and not Input.is_key_pressed(KEY_SHIFT):
-			target.call("interact", self)
 		if Input.is_action_pressed("hotwire") and target.has_method("hold_hotwire"):
 			target.call("hold_hotwire", self, delta)
-		elif target.has_method("reset_channels") and not Input.is_action_pressed("hotwire") and not Input.is_action_pressed("interact"):
-			target.call("reset_channels")
-		if Input.is_action_pressed("interact") and target.has_method("hold_hack"):
+		elif Input.is_action_pressed("interact") and target is ClimbPoint:
+			target.call("hold_pry", self, delta)
+		elif Input.is_action_pressed("interact") and target.has_method("hold_hack"):
 			target.call("hold_hack", self, delta)
 		elif Input.is_action_pressed("interact") and target.has_method("hold_hack_core") and (Input.is_key_pressed(KEY_SHIFT) or target.is_in_group("shard_dais")):
 			target.call("hold_hack_core", self, delta)
+		elif Input.is_action_just_pressed("interact") and not Input.is_key_pressed(KEY_SHIFT):
+			target.call("interact", self)
+		elif target.has_method("reset_channels") and not Input.is_action_pressed("hotwire") and not Input.is_action_pressed("interact"):
+			target.call("reset_channels")
 	else:
-		var hint := "LMB scav gun   [E] use   [F] board   [G] hotwire   CTRL crawl"
-		if RunState.has_filter_pack():
-			hint += "   [R] swap filter"
-		Hud.set_prompt(hint)
+		if not _in_extract():
+			var hint := "LMB scav gun   [E] use   [F] board   [G] hotwire   [Q] dump   CTRL crawl"
+			if RunState.has_filter_pack():
+				hint += "   [R] swap filter"
+			Hud.set_prompt(hint)
 		_decay_nearby_channels()
 	if Input.is_action_just_pressed("board"):
 		_try_board_nearby()
 	if Input.is_action_just_pressed("deploy"):
 		_try_deploy()
+
+
+func _dump_part() -> void:
+	var part := RunState.dump_last_carry()
+	if part.is_empty():
+		Hud.show_banner(WorldLore.dump_empty())
+		return
+	Hud.refresh_carry()
+	var drop_pos := global_position + Vector3(0, 0.4, 0) - transform.basis.z * 1.1
+	if get_tree().current_scene and get_tree().current_scene.has_method("spawn_loot"):
+		get_tree().current_scene.call("spawn_loot", part, drop_pos)
+	Hud.show_banner(WorldLore.dump_banner(str(part.get("display_name", "part"))))
+	Fx.play("ui")
 
 
 func _try_filter() -> void:

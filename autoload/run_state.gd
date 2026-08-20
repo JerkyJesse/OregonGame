@@ -46,6 +46,7 @@ var heavy_engaged: bool = false
 var extracted_value: int = 0
 var filter: float = 100.0
 var tax_cleared: bool = false
+var extracts_completed: int = 0
 const FILTER_MAX := 100.0
 
 
@@ -72,6 +73,7 @@ func new_game() -> void:
 	last_message = ""
 	in_raid = false
 	health = 100.0
+	extracts_completed = 0
 	raid_carry.clear()
 	secure_carry.clear()
 	stash.append(make_part("armor_plate", 1.0))
@@ -449,9 +451,20 @@ func add_carry(part: Dictionary, secure: bool = false) -> bool:
 		return false
 	if secure and secure_carry.size() < int(cap(deploy_scale, "secure")):
 		secure_carry.append(part)
+		if bool(part.get("is_payload", false)):
+			last_message = WorldLore.core_secured_banner()
 	else:
 		raid_carry.append(part)
+		if bool(part.get("is_payload", false)):
+			last_message = WorldLore.core_carry_banner()
 	return true
+
+
+func dump_last_carry() -> Dictionary:
+	if not raid_carry.is_empty():
+		var part: Dictionary = raid_carry.pop_back()
+		return part
+	return {}
 
 
 func extract_to_hangar() -> void:
@@ -463,8 +476,10 @@ func extract_to_hangar() -> void:
 	for part in secure_carry:
 		stash.append(part)
 		value += int(part.get("value", 10))
-	credits += value
-	extracted_value = value
+	var salvage := maxi(int(float(value) * 0.35), n * 8) if n > 0 else 0
+	credits += salvage
+	extracted_value = salvage
+	extracts_completed += 1
 	_unlock_from_wealth()
 	raid_carry.clear()
 	secure_carry.clear()
@@ -472,10 +487,10 @@ func extract_to_hangar() -> void:
 	health = 100.0
 	filter = FILTER_MAX
 	tax_cleared = false
-	last_message = WorldLore.tam_extract(n, value)
+	last_message = WorldLore.tam_extract(n, salvage)
 	save_state()
 	if NetSession.is_online():
-		NetSession.disconnect_game()
+		NetSession.on_local_extracted()
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
 
 
@@ -579,6 +594,30 @@ func scale_unlocked(scale: String) -> bool:
 	return unlocked_scales.has(scale)
 
 
+func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+func vendor_offers() -> Array:
+	var offers: Array = [
+		["filter_canister", 22],
+		["armor_plate", 25],
+		["myomer_strand", 30],
+		["cooler_pack", 35],
+		["sensor_suite", 70],
+	]
+	if extracts_completed >= 1 or hangar_tier >= 2:
+		offers.append(["jump_jets", 55])
+	if extracts_completed >= 2:
+		offers.append(["shield_emitter", 80])
+		offers.append(["actuator_leg", 40])
+	if hangar_tier >= 3:
+		offers.append(["heavy_plating", 90])
+	if faction == "pale":
+		offers.append(["filament_veil", 95])
+	return offers
+
+
 func vendor_buy(id: String, cost: int) -> bool:
 	if credits < cost:
 		return false
@@ -660,6 +699,7 @@ func save_state() -> void:
 		"deploy_scale": deploy_scale,
 		"raid_mode": raid_mode,
 		"raid_map": raid_map,
+		"extracts_completed": extracts_completed,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
@@ -711,6 +751,7 @@ func load_state() -> bool:
 	deploy_scale = str(data.get("deploy_scale", deploy_scale))
 	raid_mode = str(data.get("raid_mode", raid_mode))
 	raid_map = str(data.get("raid_map", raid_map))
+	extracts_completed = maxi(int(data.get("extracts_completed", 0)), 0)
 	var light_empty := true
 	for slot in SLOTS:
 		if not get_equipped(slot, "light").is_empty():

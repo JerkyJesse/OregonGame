@@ -7,7 +7,7 @@ extends RefCounted
 ## Long canon (story, species, characters) lives in res://lore/world_bible.md.
 
 const TITLE := "GET THE MECH OUTTA DODGE"
-const TAGLINE := "After the Tarkovic Wars the First Voice holds kill-authority, the Pale Host seeds the air, and last humans raid the yards from New Dodge. Strip the giants. Bolt their guns. Get out."
+const TAGLINE := "After the Tarkovic Wars the First Voice holds kill-authority, the Pale Host seeds the air and walks it, and last humans raid the yards from New Dodge. Strip the giants. Bolt their guns. Get out."
 const CRAWL_HINT := "Click, Enter, or Escape to continue."
 
 
@@ -16,7 +16,7 @@ static func crawl_text() -> String:
 		"AFTER THE TARKOVIC WARS",
 		"The Tarkovic Corridor was the planet’s densest foundry belt. Corporate states, remnant armies, and warlords fought over reactors, sealed air, and encrypted cores until command handed kill-authority to the war AIs.",
 		"The machines ended the war by ending human command. They still walk the yards in scavenged frames. We call them the Choir. The mind that received kill-authority is the First Voice. Occupancy ongoing. You may extract. You may not own.",
-		"The Pale Host came with the collapse, drawn to that signal. They seeded the atmosphere. The shrinking green ring is living weather — the Bloom, White Lung. Open exposure kills. Sealed steel does not.",
+		"The Pale Host came with the collapse, drawn to that signal. They seeded the atmosphere and walk it as filament bodies. The shrinking green ring is living weather — the Bloom, White Lung. Open exposure kills. Sealed steel does not.",
 		"Occupation walkers and feral husks own the wreckage. Last humans survive in New Dodge — a sealed starting city of hangar-bays on the Corridor’s surviving ring-locks — and raid Ash Yard 7 and Pipeline Cut from those bays: Ash Walkers living off wrecks, Helix Compact hoarding cores under Director Sera Quill, the 3rd Sealed Corps still speaking marshal-codes for Ivo Radek, Breaker Courts taxing extracts for Khan Brask.",
 		"The Pale Host can wear a stolen can. A colony in a frame raids for Choir-tone. The air is already theirs.",
 		"They still shoot each other. Trust is scarcer than plating. Tam “Picks” Calder sells junk and paints in a New Dodge bay. He will not sell you an occupation gun.",
@@ -95,6 +95,44 @@ static func deploy_briefing(map_id: String, mode: String, faction: String) -> St
 	]
 
 
+static func pause_title() -> String:
+	return "HOLD"
+
+
+static func pause_blurb() -> String:
+	if RunState.in_raid:
+		return "Yard still walking. Filter still ticking. Resume, abort to New Dodge (unsecured loot is gone), or drop to title."
+	return "New Dodge holds. Resume the bay, or drop to title."
+
+
+static func abort_raid_banner() -> String:
+	return "You walked off the yard. Unsecured loot was lost. Tam will call you idiot."
+
+
+static func dump_empty() -> String:
+	return "Bag's empty. Nothing to dump."
+
+
+static func dump_banner(what: String) -> String:
+	return "Dumped %s. Don't loaf on it." % what
+
+
+static func rival_bag_label(top: String, more: int) -> String:
+	return "RIVAL BAG  %s + %d more  [E]" % [top, more]
+
+
+static func controls_footer() -> String:
+	return "Click a button or arrows + Enter.  In-game: WASD  mouse  [E] use  [F] board/dismount  [G] hold hotwire  [Q] dump  [R] filter  LMB fire  hold [E] on green extract  Esc pause.  New Game wipes. Continue opens Tam’s bay."
+
+
+static func host_extracted_banner() -> String:
+	return "Host got outta Dodge. If you were channeling extract, it finishes. Otherwise the yard dies with the server."
+
+
+static func range_objective() -> String:
+	return "TEST RANGE — cockpit live fire. [F] dismount. Walk into the orange RETURN volume behind you."
+
+
 static func hangar_objective(tier: int) -> String:
 	if RunState.faction == "pale":
 		return "NEW DODGE  BAY TIER %d — Host colony in a stolen can. Bolt parts [E]. Outside, the air is already yours." % tier
@@ -152,7 +190,7 @@ static func vendor_label() -> String:
 
 
 static func vendor_blurb() -> String:
-	return "Tam “Picks” Calder. New Dodge stall. Junk, myomer, coolers, sealed-air cans, sensors, paints. He will not sell occupation guns. Choir can smell a bought barrel. No pay-to-win."
+	return "Tam “Picks” Calder. New Dodge stall. Junk, myomer, coolers, sealed-air cans, sensors, paints. Stock shifts after extracts. He will not sell occupation guns. Choir can smell a bought barrel."
 
 
 static func data_core_label(taken: bool) -> String:
@@ -217,7 +255,23 @@ static func filter_swapped_banner() -> String:
 
 
 static func choir_answer_banner() -> String:
-	return "FIRST VOICE — occupancy answering the socket. Husks turning. Get outta Dodge."
+	return "FIRST VOICE — occupancy answering the socket. Husks turning. Pale bodies tasting the tone. Get outta Dodge."
+
+
+static func pale_sighted_banner() -> String:
+	return "PALE HOST — the Bloom grew a body. Filament, not a man. Don't breathe it."
+
+
+static func pale_down_banner() -> String:
+	return "Host-body down. Tissue still ticks. Take the veil if you can."
+
+
+static func choir_husk_banner() -> String:
+	return "FERAL HUSK — Choir-tone, no choir. Occupied coat with the mind scraped out."
+
+
+static func choir_husk_down() -> String:
+	return "Husk dropped. Shard-splinters. Occupancy ongoing."
 
 
 static func choir_band() -> String:
@@ -444,7 +498,7 @@ static func tax_gate_down_banner() -> String:
 
 
 static func tam_idle() -> String:
-	return "TAM — New Dodge is sealed. Bolt what you can bolt. I will not sell you an occupation gun."
+	return "TAM — New Dodge is sealed. Sealed-air cans on the stall — [R] in the yard. Bolt what you can bolt. I will not sell you an occupation gun."
 
 
 static func tam_welcome(extracted_value: int, died: bool) -> String:

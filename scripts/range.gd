@@ -12,7 +12,7 @@ func _ready() -> void:
 	RunState.in_raid = false
 	Hud.enter_gameplay()
 	Hud.reset_for_scene()
-	Hud.set_objective("TEST RANGE — cockpit live fire. [F] dismount. Walk into the orange RETURN volume behind you.")
+	Hud.set_objective(WorldLore.range_objective())
 	if has_node("Props"):
 		Greybox.build_range($Props)
 	LOOK.apply(self, LOOK.KIND_RANGE)

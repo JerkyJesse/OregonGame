@@ -64,6 +64,7 @@ func _host_give(peer_id: int) -> void:
 		Fx.play("ui")
 	else:
 		rpc_grant_part.rpc_id(peer_id, part)
+		return
 	if remaining.is_empty():
 		looted = true
 		if _loot_mesh:
@@ -93,8 +94,29 @@ func rpc_grant_part(part: Dictionary) -> void:
 		Hud.refresh_carry()
 		Hud.show_banner("Picked up %s" % part.get("display_name", "part"))
 		Fx.play("ui")
+		rpc_wreck_result.rpc_id(1, true, str(part.get("id", "")))
 	else:
 		Hud.show_banner("Carry full.")
+		rpc_wreck_result.rpc_id(1, false, str(part.get("id", "")))
+
+
+@rpc("any_peer", "reliable")
+func rpc_wreck_result(ok: bool, id: String) -> void:
+	if not NetSession.is_host():
+		return
+	if ok:
+		if remaining.is_empty():
+			looted = true
+			if _loot_mesh:
+				_loot_mesh.visible = false
+		rpc_sync_wreck.rpc(_remaining_payload(), looted)
+		return
+	if id != "":
+		remaining.insert(0, id)
+	looted = false
+	if _loot_mesh:
+		_loot_mesh.visible = true
+	rpc_sync_wreck.rpc(_remaining_payload(), looted)
 
 
 @rpc("authority", "call_remote", "reliable")

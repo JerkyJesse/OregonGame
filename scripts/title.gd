@@ -74,7 +74,7 @@ func _build() -> void:
 	v.add_theme_constant_override("separation", 10)
 	scroll.add_child(v)
 	_add_button(v, "NEW GAME", _new_game)
-	_add_button(v, "ENTER NEW DODGE", _enter_hangar)
+	_add_button(v, "CONTINUE" if RunState.has_save() else "ENTER NEW DODGE", _enter_hangar)
 	_add_button(v, "QUICK DEPLOY  (Ash Yard 7, scavenger)", _quick)
 	_add_button(v, "HOST RAID  :%d" % NetSession.PORT, _host)
 	var ip_row := HBoxContainer.new()
@@ -97,7 +97,7 @@ func _build() -> void:
 	_status.text = "Host, then friends type your LAN IP and Join. This PC: %s" % NetSession.lan_ip_text()
 	root.add_child(_status)
 	var foot := Label.new()
-	foot.text = "Click a button or use arrows + Enter.  In-game: WASD  mouse look  E interact  F board  G hold hotwire  LMB fire"
+	foot.text = WorldLore.controls_footer()
 	foot.autowrap_mode = TextServer.AUTOWRAP_WORD
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
