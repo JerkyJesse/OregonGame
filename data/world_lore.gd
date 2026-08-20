@@ -77,11 +77,21 @@ static func mode_title(id: String) -> String:
 static func mode_blurb(id: String) -> String:
 	match id:
 		"scav_wave":
-			return "Post-battle strip. Wrecks everywhere. Feral husks. Pale weather closing."
+			return "Post-battle strip. Extra husks on the field, cold walkers, feral Choir, rival bags. Pale ring closes faster — steal and bolt before the second wave."
 		"late_drop":
-			return "You arrived after the giants already died. Grab and go. Jex Morrow’s religion."
+			return "Giants already died. Dead walker to climb, ground loot and Jex’s stash. No inbound coat. Bloom closes hard — grab and go."
 		_:
-			return "Live occupation fight. Walkers on patrol. First Voice still on mission. Extract under fire."
+			return "Live occupation fight. Walkers on patrol, Pell on the ring, contested green pad. First Voice still on mission. Extract under fire."
+
+
+static func mode_drop_banner(id: String) -> String:
+	match id:
+		"scav_wave":
+			return "SCAV WAVE — wrecks warm. Coats sleeping. Steal bags. Bloom’s hungry."
+		"late_drop":
+			return "LATE DROP — giants down. Jex already here. Grab and go."
+		_:
+			return "COMBAT — occupancy live. Hold the strip. Extract under the coat."
 
 
 static func deploy_briefing(map_id: String, mode: String, faction: String) -> String:
@@ -149,24 +159,39 @@ static func hangar_objective(tier: int) -> String:
 
 static func raid_objective(map_id: String, mode: String) -> String:
 	if mode == "scav_wave":
-		return "SCAV WAVE — wrecks + feral husks. Steal rival bags on pads. Pale ring closing."
+		if map_id == "pipeline":
+			return "SCAV WAVE / PIPE — cold spine walker, extra husks, rival bags. Hack the shard if you dare. Ring closes fast."
+		return "SCAV WAVE — strip warm husks, steal rival bags, bolt a gun. Cold walker = quiet strip. Bloom closing."
 	if mode == "late_drop":
-		return "LATE DROP — giants already died. Grab bags, strip wrecks, extract before Jex does."
+		if map_id == "pipeline":
+			return "LATE DROP / PIPE — dead spine walker + ground loot. Beat Jex to the pad. Bloom closes hard."
+		return "LATE DROP — dead walker to climb, bags on the dirt, beat Jex out. No inbound coat. Bloom closes hard."
 	if map_id == "pipeline":
-		return "PIPELINE CUT — hold [E] on Pump House 3 shard. Catwalks above, husks below. Climb heavies. Extract green/blue/west tax."
-	return "ASH YARD 7 — strip the medium, bolt a gun on the light, climb/pry the heavy, steal bags, extract. Filter ticking."
+		return "COMBAT / PIPE — live spine walker. Hold [E] on Pump House 3 shard. Catwalks above, husks below. Extract green/blue/west tax."
+	return "COMBAT — live walker. Strip the medium, bolt a gun, climb/pry the coat, steal bags, extract. Filter ticking."
 
 
 static func ash_progress_objective(kind: String) -> String:
+	var mode := RunState.raid_mode
 	match kind:
 		"bolted":
+			if mode == "late_drop":
+				return "GUN BOLTED — board [F] or extract NOW. Jex is racing you. Bloom doesn’t wait."
+			if mode == "scav_wave":
+				return "GUN BOLTED — board [F] or hit green extract. Rival bags still on pads. Ring’s hungry."
 			return "GUN BOLTED — board the light [F] or hold [E] on a green extract. Blue = stealth. West = Brask tax."
 		"carrying_gun":
+			if mode == "late_drop":
+				return "Gun in bag — bolt the LIGHT [E] or extract before Jex lifts your stash."
 			return "Gun in bag — look at the parked LIGHT and bolt it [E], or extract now."
 		"loot":
+			if mode == "scav_wave":
+				return "Loot in bag — strip another husk, steal a rival bag, or extract before the inbound coat."
+			if mode == "late_drop":
+				return "Loot in bag — climb the dead walker or extract. Bloom closes hard."
 			return "Loot in bag — strip a weapon off the dead MEDIUM, climb the heavy for plate, or extract."
 		_:
-			return raid_objective("ash_yard", "combat")
+			return raid_objective("ash_yard", mode)
 
 
 static func storm_banner() -> String:
@@ -564,12 +589,16 @@ static func tam_welcome(extracted_value: int, died: bool) -> String:
 
 static func yard_open_band(map_id: String, mode: String) -> String:
 	if map_id == "pipeline":
-		return "BAND — Pipeline Cut. Catwalks above, husks below. Pump House 3 still sockets shards."
+		if mode == "late_drop":
+			return "JEX — Spine’s cold. Giants already died. Grab the shard or don’t. Just go."
+		if mode == "scav_wave":
+			return "BAND — Pipeline scav wave. Cold walker. Warm husks. Steal bags before the Bloom."
+		return "BAND — Pipeline Cut combat. Live spine walker. Catwalks above, husks below. Pump House 3 sockets shards."
 	if mode == "late_drop":
-		return "JEX — Giants already died. Grab and go. Don’t be the loudest idiot."
+		return "JEX — Giants already died. Dead coat to climb. Grab and go. Don’t be the loudest idiot."
 	if mode == "scav_wave":
-		return "BAND — Scav wave. Wrecks everywhere. Feral husks. Bloom on the horizon."
-	return "BAND — Ash Yard 7 is walking. Loot the wreck, strip the dead, bolt a gun, extract."
+		return "BAND — Scav wave. Extra husks. Cold walker. Rival bags on the dirt. Bloom closing fast."
+	return "BAND — Ash Yard 7 combat. Live walker coat. Contested green. Loot, strip, bolt, extract."
 
 
 static func dais_label(taken: bool) -> String:
@@ -596,8 +625,15 @@ static func yard_band_line() -> String:
 	if RunState.raid_mode == "combat":
 		pool.append("PELL — Irregulars, get out of the shot. HOLD THE RING.")
 		pool.append("RADEK — Restore the chain. Speak the code. Make them say sir.")
+		pool.append("BAND — Contested green. Someone always camps the pad.")
+	if RunState.raid_mode == "scav_wave":
+		pool.append("BAND — Scav wave. Coats sleeping. Steal while quiet.")
+		pool.append("ASH-NINE — Second husk still warm. Kids strip fast.")
+		pool.append("TAM — Wave days fill the stall. Don’t die proud over junk.")
 	if RunState.raid_mode == "late_drop":
 		pool.append("JEX — Late drop. Grab and go. I’m stupid.")
+		pool.append("JEX — Dead walker. My stash. Race me.")
+		pool.append("BAND — No inbound coat. Bloom still eats loafers.")
 	if RunState.carrying_payload():
 		pool.append("RADEK — Return the organ of command to the 3rd Sealed Corps.")
 		pool.append("QUILL — Credits. Sealed-air shares. A charter for your New Dodge bay.")

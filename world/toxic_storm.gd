@@ -4,6 +4,7 @@ class_name ToxicStorm
 const LOOK := preload("res://world/WorldLook.gd")
 
 var radius: float = 70.0
+var shrink_rate: float = 0.35
 var _pulse: float = 0.0
 var _warn: float = 0.0
 var _filter_warn: float = 0.0
@@ -55,7 +56,7 @@ func _process(delta: float) -> void:
 	_pulse += delta
 	_warn = maxf(_warn - delta, 0.0)
 	_filter_warn = maxf(_filter_warn - delta, 0.0)
-	radius = maxf(18.0, 70.0 - RunState.raid_timer * 0.35)
+	radius = maxf(18.0, 70.0 - RunState.raid_timer * shrink_rate)
 	if _ring and _ring.mesh is TorusMesh:
 		var t := _ring.mesh as TorusMesh
 		t.inner_radius = maxf(radius - 0.7, 0.5)
