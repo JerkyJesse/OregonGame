@@ -1,6 +1,10 @@
 extends Node
 
+const LOOK := preload("res://world/WorldLook.gd")
+
+
 var _players: Array[AudioStreamPlayer] = []
+var _last_puff_ms: int = 0
 
 
 func _ready() -> void:
@@ -64,6 +68,10 @@ func _tone(kind: String) -> AudioStreamWAV:
 			hz = 310.0
 			ms = 80
 			vol = 0.14
+		"radio":
+			hz = 240.0
+			ms = 55
+			vol = 0.1
 		_:
 			hz = 200.0
 	return _make_wav(hz, ms, vol)
@@ -92,26 +100,75 @@ func spawn_tracer(from: Vector3, to: Vector3, color: Color = Color(1.0, 0.72, 0.
 	var dist := from.distance_to(to)
 	if dist < 0.15 or get_tree() == null or get_tree().current_scene == null:
 		return
+	var scene := get_tree().current_scene
 	var mi := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.04
-	cyl.bottom_radius = 0.04
+	cyl.top_radius = 0.018
+	cyl.bottom_radius = 0.055
 	cyl.height = dist
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 2.6
-	cyl.material = mat
+	cyl.material = LOOK.additive(color, 2.4)
 	mi.mesh = cyl
-	get_tree().current_scene.add_child(mi)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	scene.add_child(mi)
 	mi.global_position = (from + to) * 0.5
 	if to.is_equal_approx(from):
 		mi.queue_free()
 		return
-	mi.look_at(to, Vector3.UP)
+	mi.look_at_from_position(mi.global_position, to, Vector3.UP)
 	mi.rotate_object_local(Vector3.RIGHT, PI * 0.5)
-	get_tree().create_timer(0.08).timeout.connect(func() -> void:
+	_flash(scene, from, color, 0.1, 0.05)
+	get_tree().create_timer(0.11).timeout.connect(func() -> void:
+		if is_instance_valid(mi):
+			mi.queue_free()
+	)
+
+
+func spark(pos: Vector3, color: Color = Color(1.0, 0.7, 0.25)) -> void:
+	if get_tree() == null or get_tree().current_scene == null:
+		return
+	_flash(get_tree().current_scene, pos, color, 0.16, 0.07)
+
+
+func puff(pos: Vector3, color: Color = Color(0.45, 0.75, 1.0)) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_puff_ms < 70:
+		return
+	_last_puff_ms = now
+	if get_tree() == null or get_tree().current_scene == null:
+		return
+	_flash(get_tree().current_scene, pos, color, 0.22, 0.1)
+
+
+func burst(pos: Vector3, color: Color = Color(0.35, 1.0, 0.45)) -> void:
+	if get_tree() == null or get_tree().current_scene == null:
+		return
+	var scene := get_tree().current_scene
+	_flash(scene, pos + Vector3(0, 1.2, 0), color, 0.55, 0.28)
+	var light := OmniLight3D.new()
+	light.light_color = color
+	light.light_energy = 8.0
+	light.omni_range = 12.0
+	scene.add_child(light)
+	light.global_position = pos + Vector3(0, 1.4, 0)
+	get_tree().create_timer(0.28).timeout.connect(func() -> void:
+		if is_instance_valid(light):
+			light.queue_free()
+	)
+
+
+func _flash(scene: Node, pos: Vector3, color: Color, radius: float, life: float) -> void:
+	var mi := MeshInstance3D.new()
+	var sp := SphereMesh.new()
+	sp.radius = radius
+	sp.height = radius * 2.0
+	sp.radial_segments = 8
+	sp.rings = 4
+	sp.material = LOOK.additive(color, 3.2)
+	mi.mesh = sp
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	scene.add_child(mi)
+	mi.global_position = pos
+	get_tree().create_timer(life).timeout.connect(func() -> void:
 		if is_instance_valid(mi):
 			mi.queue_free()
 	)

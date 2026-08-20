@@ -1,5 +1,6 @@
 extends Node3D
 
+const LOOK := preload("res://world/WorldLook.gd")
 const RD := preload("res://scripts/raid_director.gd")
 
 
@@ -12,10 +13,9 @@ func _ready() -> void:
 	Hud.enter_gameplay()
 	Hud.reset_for_scene()
 	Hud.set_objective("TEST RANGE — cockpit live fire. [F] dismount. Walk into the orange RETURN volume behind you.")
-	if has_node("WorldEnvironment"):
-		($WorldEnvironment as WorldEnvironment).environment = Greybox.industrial_env(Color(0.2, 0.18, 0.16), 0.003)
 	if has_node("Props"):
 		Greybox.build_range($Props)
+	LOOK.apply(self, LOOK.KIND_RANGE)
 	if has_node("LightMech"):
 		$LightMech.hangar_preview = false
 		$LightMech.disabled = false

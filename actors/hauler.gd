@@ -11,6 +11,7 @@ func _ready() -> void:
 	hull = hull_max
 	add_to_group("hauler")
 	super._ready()
+	LOOK.dress_hauler(self)
 
 
 func get_interact_label() -> String:

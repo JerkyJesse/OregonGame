@@ -27,6 +27,11 @@ func _on_peer_ready(id: int) -> void:
 	RD.spawn_proxy(self, id)
 
 
+func _process(_delta: float) -> void:
+	if RunState.in_raid:
+		RD.update_raid_objective(self)
+
+
 func spawn_loot(part: Dictionary, pos: Vector3) -> void:
 	_loot_seq += 1
 	var drop_name := "NetLoot_%d" % _loot_seq
@@ -40,6 +45,10 @@ func rpc_spawn_loot(part: Dictionary, pos: Vector3, drop_name: String) -> void:
 	if not NetSession.sanity_loot(part):
 		return
 	RD.spawn_loot(self, part, pos, drop_name)
+
+
+func occupation_answer(pos: Vector3) -> void:
+	RD.occupation_answer(self, pos)
 
 
 func _log_spawn() -> void:

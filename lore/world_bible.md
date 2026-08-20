@@ -1,6 +1,6 @@
 # GET THE MECH OUTTA DODGE — World Bible
 
-Canon for the occupation setting. **Gameplay IDs do not change:** faction `scav` / `corporate` / `remnant` / `warlord`, maps `ash_yard` / `pipeline`, modes `combat` / `scav_wave` / `late_drop`. The player in-game stays unnamed. This document is the long story and encyclopedia. Short player-facing copy lives in `data/world_lore.gd`.
+Canon for the occupation setting. **Gameplay IDs:** faction `scav` / `corporate` / `remnant` / `warlord` / `pale`, maps `ash_yard` / `pipeline`, modes `combat` / `scav_wave` / `late_drop`. **Starting city:** New Dodge (hangar hub). The player in-game stays unnamed. This document is the long story and encyclopedia. Short player-facing copy lives in `data/world_lore.gd`.
 
 ---
 
@@ -36,7 +36,7 @@ Occupation walkers and feral husks own the wreckage. The walkers are still on mi
 
 ### Sealed Bay, Tier Whatever
 
-Nara “Cinder” Voss lives in a sealed bay because living anywhere else is a hobby for the dead. The bay smells like hot myomer, solvent, and Tam Calder’s tea, which is not tea. The lights are bay-amber. The floor is scored where a medium’s feet used to park when this place was a Compact sub-garage and not a last-human hole.
+Nara “Cinder” Voss lives in a sealed bay in **New Dodge** because living anywhere else is a hobby for the dead. New Dodge is the starting city: a welded last-human can of hangars, ring-locks, stall-light, and water-tower rust on a Compact marshalling suburb that died when command died. The bay smells like hot myomer, solvent, and Tam Calder’s tea, which is not tea. The lights are bay-amber. The floor is scored where a medium’s feet used to park when this place was a Compact sub-garage and not a last-human hole.
 
 Nara is Ash Walker, which is a way of saying she has no flag worth dying for and a bag that is always too light. She is thirty-one, sealed-bay pallor, filter-scar at the nostrils like a second smile that never learned humor. Short rust-black hair cropped with shop shears. A port behind the left ear — cheap interface, Corps surplus, the kind that itches when a Choir-tone passes through the hull. Her left ring finger is a knuckle short from a hatch that closed on a scav-wave in Yard 4. She wraps the stump in tape the color of old warning paint. People who do not know her call her Cinder because she came back from a fire once. People who know her call her Nara when they want something and Cinder when they want her to go away.
 
@@ -45,6 +45,8 @@ Tam “Picks” Calder keeps the yard stall against the north wall: a welded cag
 “Ash Yard 7 is walking,” Tam says, which means an occupation fight is live or about to be. “You drop scav. You do not drop proud. You bolt what you can bolt and you get outta Dodge.”
 
 Dodge is not a town. Dodge is the joke. Dodge is every yard that still has a green extract and a shrinking ring. Get the mech. Get outta Dodge. The sentence is older than Nara. It is the only prayer the Ash Walkers kept.
+
+Then somebody painted **NEW DODGE** on a shot water tower and the joke grew a map-pin. There was never an old Dodge. New Dodge is the place the prayer points *to*: home, hangar, Tam’s stall, the ring-seal that still holds. The yards are Dodge. You start in New Dodge. You extract to New Dodge. You do not confuse them unless you want Tam to call you idiot twice.
 
 Jex Morrow is already at the deploy console, checking a light frame that is not his. Jex is Ash Walker too: taller, meaner in the mouth, a burn down the right cheek that looks like a map of Pipeline Cut. He wears a scavenger rig with too many pouches and a knife he never uses on metal. He and Nara have stolen from the same wrecks and each other. That is as close as Ash Walkers get to family.
 
@@ -80,7 +82,7 @@ Nara is scavenger-small beside Pell’s light. She could be crushed by accident.
 
 She extracts the first time without the shard, with a bolted gun and a filter that has twelve minutes. Green extract, east pad, hold the switch, do not look at the walker, do not look at Pell, do not look at Jex who is stripping a husk’s knee like a man eating.
 
-The bay takes her back. Tam says, “Idiot.” Then, “Spark.” Then he sells her a cooler pack she does not have credits for and writes it on a card he will never collect.
+New Dodge takes her back. Tam says, “Idiot.” Then, “Spark.” Then he sells her a cooler pack she does not have credits for and writes it on a card he will never collect.
 
 That is Act I. You live. You come back poorer in hours and richer in steel. The war is over. The occupation is not.
 
@@ -142,7 +144,7 @@ Nara refuses. The gun on her light is a Helix barrel on an Ash hardpoint on a Co
 
 Green extract. Hold. The shard in the secure slot ticks like a bomb that thinks it is a heart.
 
-They get outta Dodge. Pipeline Cut stays occupied. The spine still pushes fuel. The Choir still has kill-authority. Nothing in Act II fixes the world. Act II is how you get a mech and a shard and a reason for three factions to want you dead.
+They get outta Dodge. New Dodge’s airlock writes them back into a log somebody might read. Pipeline Cut stays occupied. The spine still pushes fuel. The Choir still has kill-authority. Nothing in Act II fixes the world. Act II is how you get a mech and a shard and a reason for three factions to want you dead.
 
 ---
 
@@ -150,7 +152,7 @@ They get outta Dodge. Pipeline Cut stays occupied. The spine still pushes fuel. 
 
 ### The Bay, After
 
-Tam weighs the shard with his live eye and will not touch it with his hands. “That’s a First Voice chip,” he says, which is stall-talk for *that is older than your fear*. “Radek will come. Quill will send a nicer person. Brask will send a tax. You should have left it in the pump, spark.”
+New Dodge, after. Tam weighs the shard with his live eye and will not touch it with his hands. “That’s a First Voice chip,” he says, which is stall-talk for *that is older than your fear*. “Radek will come. Quill will send a nicer person. Brask will send a tax. You should have left it in the pump, spark.”
 
 “Then you’d have nothing to insult,” Nara says.
 
@@ -188,13 +190,13 @@ Pale weather closes. The green ring is a noose. Jex makes it in with a bag of ac
 
 The shard goes into Tam’s cage under a decal sheet. It ticks. It is loot. It is not a throne. Helix will send another Wren. The Corps will send another Pell. Brask will tax another LZ. The First Voice will wear another coat. The Bloom will seed another hour of air.
 
-Nara strips the light, bolts nothing for a day, sits on Tam’s coolant-drum stool, and drinks the thing that is not tea. Filter-scar itching. Ear-port quiet. The bay holds.
+Nara strips the light, bolts nothing for a day, sits on Tam’s coolant-drum stool, and drinks the thing that is not tea. Filter-scar itching. Ear-port quiet. The bay holds. New Dodge holds.
 
 “Get the mech,” Tam says, not looking at her.
 
 “Get outta Dodge,” she says.
 
-That is the whole story. It happens again tomorrow with different wrecks. The player is not Nara. The player is whoever next drops into a yard that still has a gun on a dead giant and a ring that is shrinking. The occupation does not end because a scavenger understood it. The occupation ends, if it ends, some other book. This book is about getting out with the steel.
+That is the whole story. It happens again tomorrow with different wrecks. The player is not Nara. The player is whoever next drops from New Dodge into a yard that still has a gun on a dead giant and a ring that is shrinking. The occupation does not end because a scavenger understood it. The occupation ends, if it ends, some other book. This book is about getting out with the steel.
 
 ---
 
@@ -221,7 +223,7 @@ There are three occupiers of the Corridor’s present tense. Only one of them ev
 **Culture.** Four last-human polities matter in play (see Factions). Shared culture underneath:
 
 - **Steel-theology:** sealed hulls are sacred in the way a lock is sacred. You do not vent a bay for drama.
-- **The joke of Dodge:** every contested yard is Dodge. The prayer is the title.
+- **The joke of Dodge:** every contested yard is Dodge. The prayer is the title. **New Dodge** is the starting city the joke grew: a sealed last-human can you extract *to*. The yards are Dodge. Home is New Dodge.
 - **Loot-language:** parts have condition, rarity, compatibility. People talk about a friend the way they talk about a capacitor: *still good, heat-problem, don’t mount on a light.*
 - **No open-air funerals.** Bodies left in Pale weather are not buried; they are seeded. You drag what you can to steel or you don’t speak the name.
 
@@ -308,7 +310,7 @@ Eusocial, distributed, slow compared to a gunfight, fast compared to a treaty. T
 
 **Creed.** Live off wrecks. No flag worth dying for.
 
-**What they are.** Last-human scav culture. Not a state. A habit of surviving without a ledger, a marshal, or a court. They take sealed bays where Compact leases died. They paint rust-color because rust is honest.
+**What they are.** Last-human scav culture. Not a state. A habit of surviving without a ledger, a marshal, or a court. They take sealed bays in New Dodge where Compact leases died. They paint rust-color because rust is honest. New Dodge is their city the way a bag is a house: it holds, until it doesn’t.
 
 **Look.** Mixed kit. Corps gray sleeves on Helix harnesses on Breaker boots. Filter-scars proud. Decals from Tam’s stall. Mechs that look like crimes.
 
@@ -362,11 +364,35 @@ Eusocial, distributed, slow compared to a gunfight, fast compared to a treaty. T
 
 ---
 
+### Pale Host — ID `pale`
+
+**Creed.** A Host colony wearing a stolen can. The air is already theirs.
+
+**What they are.** Playable individuation of the Bloom. Not a person. A eusocial filament-cluster that learned to occupy sealed steel the way the Choir occupies frames. They raid yards for Choir-tone (shards), not credits. Open air is habitat. Filters are a human superstition they do not need.
+
+**Look.** Pale-green. Filament sheen on a scavenged capsule. A Filament Veil in the sensor slot. They look like a person until you notice there is no filter-scar, because there is no filter.
+
+**How they fight.** Same scales as humans, stolen coats. Unique: Pale weather does not bite (bloom-native). Choir shards decrypt faster (conductive affinity). Humans shoot them on sight. They still pay Brask if they use his pad — the Host does not tax, and Brask does not give weather a sash.
+
+**Leaders.** None. If there is a reproductive core, it is not in Ash Yard 7.
+
+**View of others.** Cans. Gaps. Signal. Nectar.
+
+---
+
 ## Places
+
+### New Dodge (starting city)
+
+Last-human city on the Corridor’s surviving ring-locks. Not a capital. A welded cluster of sealed bays, stall-alleys, Compact sub-garages, Corps leftover bunkers, and a water tower somebody stenciled **NEW DODGE** on after the seeding, because Dodge was already the joke and home needed a name. There was never an old Dodge. New Dodge is the map-pin the prayer points *to*.
+
+You start here. The hangar is a bay in New Dodge. Extracts dump you back through New Dodge’s airlocks. Ash Yard 7 is a drop away; Pipeline Cut is a longer one. Factions share the city the way they share a wreck: poorly. Ash Walkers squat the rust bays. Helix still invoices a copper district that smells like solvent. The 3rd Sealed Corps keeps a bunker-museum under the south ring-lock and pretends it is a garrison. Breaker Courts tax the inner pads and call the tax a charter. Pale Host colonies have been found in stolen cans on the outer seals; New Dodge shoots them, or rents them, depending on the hour.
+
+It is not safe. It is safer. The Bloom has not eaten the ring-locks yet. Walkers do not step the inner streets if the Choir still has occupancy-budget for the yards. That is the whole civic plan.
 
 ### Sealed bays (hangar)
 
-Last-human holes. Tiered: a small garage, then more frames, then a heavy’s parking-wound in the floor. Bay-amber light. Deploy console. Range door. Tam’s stall on the north wall in Nara’s bay; other bays have other Tams or a hole where a Tam died. The hangar is the only place the title’s “outta Dodge” *to*. It is not safe. It is safer.
+Neighborhoods of New Dodge. Tiered: a small garage, then more frames, then a heavy’s parking-wound in the floor. Bay-amber light. Deploy console. Range door. Tam’s stall on the north wall in Nara’s bay; other bays have other Tams or a hole where a Tam died. The hangar is the only place the title’s “outta Dodge” *to*, and that place has a name now. It is not safe. It is safer.
 
 ### Ash Yard 7 — map `ash_yard`
 
@@ -520,6 +546,6 @@ Dismount is Driver-2-sacred: you get out, you are meat, you get back in or you s
 
 ## What this bible does not do
 
-It does not name the player. It does not require Nara to be in a raid. It does not end the occupation. It does not let Helix buy the Choir, or the Corps command it, or the Breakers tax the Bloom, or the Ash Walkers stay innocent. It gives the yards a memory so the HUD lines have somewhere to have come from.
+It does not name the player. It does not require Nara to be in a raid. It does not end the occupation. It does not let Helix buy the Choir, or the Corps command it, or the Breakers tax the Bloom, or the Ash Walkers stay innocent. It gives the yards a memory so the HUD lines have somewhere to have come from. It starts you in New Dodge.
 
-Get the mech. Get outta Dodge.
+Get the mech. Get outta Dodge. Come home to New Dodge.

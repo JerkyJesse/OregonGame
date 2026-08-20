@@ -1,5 +1,6 @@
 extends Node3D
 
+const LOOK := preload("res://world/WorldLook.gd")
 const LIGHT_SCENE := preload("res://actors/light_mech.tscn")
 const MEDIUM_SCENE := preload("res://actors/medium_mech.tscn")
 const HEAVY_SCENE := preload("res://actors/heavy_mech.tscn")
@@ -16,11 +17,9 @@ func _ready() -> void:
 	Hud.reset_for_scene()
 	Hud.set_objective(WorldLore.hangar_objective(RunState.hangar_tier))
 	Hud.refresh_carry()
-	_lights()
-	if has_node("WorldEnvironment"):
-		($WorldEnvironment as WorldEnvironment).environment = Greybox.industrial_env(Color(0.18, 0.16, 0.14), 0.004)
 	if has_node("Props"):
 		Greybox.build_hangar_props($Props, RunState.hangar_tier)
+	LOOK.apply(self, LOOK.KIND_HANGAR)
 	_park_frames()
 	_spawn_vendor()
 	_spawn_range()
@@ -37,7 +36,11 @@ func _ready() -> void:
 		$Scavenger.set("spawn_point", $Scavenger.position)
 	if RunState.last_message != "":
 		Hud.show_banner(RunState.last_message)
+		var died := "died" in RunState.last_message.to_lower()
+		Hud.set_sensors(WorldLore.tam_welcome(RunState.extracted_value, died))
 		RunState.last_message = ""
+	else:
+		Hud.set_sensors(WorldLore.tam_idle())
 
 
 func _lights() -> void:
@@ -78,26 +81,46 @@ func _park_frames() -> void:
 
 func _spawn_vendor() -> void:
 	var v: Node3D = (load("res://world/vendor.gd") as GDScript).new()
-	v.position = Vector3(12, 0, 12)
-	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(1.6, 1.8, 1.2)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.2, 0.35, 0.28)
-	mat.emission_enabled = true
-	mat.emission = Color(0.2, 0.5, 0.3)
-	mat.emission_energy_multiplier = 0.8
-	box.material = mat
-	mesh.mesh = box
-	mesh.position.y = 0.9
-	v.add_child(mesh)
+	v.position = Vector3(14, 0, 12)
+	_stall_box(v, Vector3(0, 1.1, -0.7), Vector3(2.2, 2.2, 0.35), Color(0.22, 0.28, 0.24))
+	_stall_box(v, Vector3(-1.0, 1.0, 0.1), Vector3(0.3, 2.0, 1.4), Color(0.18, 0.2, 0.19))
+	_stall_box(v, Vector3(1.0, 1.0, 0.1), Vector3(0.3, 2.0, 1.4), Color(0.18, 0.2, 0.19))
+	_stall_box(v, Vector3(0, 0.35, 0.2), Vector3(1.8, 0.12, 1.1), Color(0.3, 0.22, 0.14))
+	_stall_box(v, Vector3(0, 1.05, 0.15), Vector3(1.7, 0.1, 1.0), Color(0.28, 0.2, 0.12))
+	_stall_box(v, Vector3(0, 1.7, 0.1), Vector3(1.6, 0.1, 0.9), Color(0.26, 0.18, 0.12))
+	var stool := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.28
+	cyl.bottom_radius = 0.32
+	cyl.height = 0.7
+	cyl.material = Greybox.mat(Color(0.35, 0.32, 0.22))
+	stool.mesh = cyl
+	stool.position = Vector3(0.9, 0.35, 0.85)
+	v.add_child(stool)
 	var col := CollisionShape3D.new()
 	var sh := BoxShape3D.new()
-	sh.size = Vector3(1.6, 1.8, 1.2)
+	sh.size = Vector3(2.4, 2.2, 1.8)
 	col.shape = sh
-	col.position.y = 0.9
+	col.position.y = 1.1
 	v.add_child(col)
+	var lab := Label3D.new()
+	lab.text = "TAM PICKS  ·  JUNK + FILTERS + PAINTS"
+	lab.position = Vector3(0, 2.55, 0)
+	lab.font_size = 52
+	lab.modulate = Color(0.75, 0.95, 0.7)
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	v.add_child(lab)
 	add_child(v)
+
+
+func _stall_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> void:
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	box.material = Greybox.mat(color, 0.15)
+	mesh.mesh = box
+	mesh.position = pos
+	parent.add_child(mesh)
 
 
 func _spawn_range() -> void:
@@ -106,12 +129,7 @@ func _spawn_range() -> void:
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = Vector3(2.2, 3.2, 0.4)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.7, 0.35, 0.1)
-	mat.emission_enabled = true
-	mat.emission = Color(0.9, 0.4, 0.1)
-	mat.emission_energy_multiplier = 1.1
-	box.material = mat
+	box.material = LOOK.emit_surface(Color(0.95, 0.42, 0.08), 1.6)
 	mesh.mesh = box
 	mesh.position.y = 1.6
 	d.add_child(mesh)

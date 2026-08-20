@@ -1,5 +1,8 @@
 ﻿extends CanvasLayer
 
+const LOOK := preload("res://world/WorldLook.gd")
+
+
 var ui_busy: bool = false
 var gameplay_active: bool = false
 var _picker_slot: String = ""
@@ -31,6 +34,8 @@ var _heat: ProgressBar
 var _timer: Label
 var _net: Label
 var _sensors: Label
+var _lungs: Label
+var _lungs_bar: ProgressBar
 var _deploy: PanelContainer
 var _vendor: PanelContainer
 var _bay: PanelContainer
@@ -46,6 +51,13 @@ func _ready() -> void:
 	_extract_wrap.visible = false
 	_banner.text = ""
 	_build_extras()
+	LOOK.attach_hud_chrome(self)
+	LOOK.outline_label(_timer, Color(0.95, 0.7, 0.35))
+	LOOK.outline_label(_net, Color(0.65, 0.75, 0.8))
+	LOOK.outline_label(_sensors, Color(0.85, 0.9, 0.45))
+	if _extract_bar:
+		_extract_bar.add_theme_stylebox_override("background", LOOK.bar_bg())
+		_extract_bar.add_theme_stylebox_override("fill", LOOK.bar_fill(Color(0.25, 0.85, 0.38)))
 	_fit_menu(_loadout_panel)
 	_fit_menu(_slot_panel)
 	_ignore_hud_mouse()
@@ -82,6 +94,8 @@ func _build_extras() -> void:
 	_heat.anchor_top = 1.0
 	_heat.anchor_bottom = 1.0
 	_heat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_heat.add_theme_stylebox_override("background", LOOK.bar_bg())
+	_heat.add_theme_stylebox_override("fill", LOOK.bar_fill(Color(0.95, 0.42, 0.1)))
 	add_child(_heat)
 	_timer = Label.new()
 	_timer.position = Vector2(24, 108)
@@ -103,6 +117,21 @@ func _build_extras() -> void:
 	_sensors.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_sensors.size = Vector2(900, 40)
 	add_child(_sensors)
+	_lungs = Label.new()
+	_lungs.position = Vector2(280, 50)
+	_lungs.add_theme_font_size_override("font_size", 18)
+	_lungs.add_theme_color_override("font_color", Color(0.55, 0.9, 0.4))
+	_lungs.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lungs.visible = false
+	add_child(_lungs)
+	_lungs_bar = ProgressBar.new()
+	_lungs_bar.max_value = 100
+	_lungs_bar.show_percentage = false
+	_lungs_bar.position = Vector2(280, 74)
+	_lungs_bar.size = Vector2(160, 10)
+	_lungs_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lungs_bar.visible = false
+	add_child(_lungs_bar)
 	_filter_row = HBoxContainer.new()
 	var loadout_v: VBoxContainer = _loadout_panel.get_node("Margin/VBox")
 	loadout_v.add_child(_filter_row)
@@ -139,6 +168,7 @@ func reset_for_scene() -> void:
 	set_extract(-1.0)
 	set_heat(-1.0)
 	set_sensors("")
+	set_lungs(-1.0)
 	refresh_carry()
 	set_health(RunState.health)
 
@@ -159,6 +189,34 @@ func set_health(value: float) -> void:
 func set_sensors(text: String) -> void:
 	if _sensors:
 		_sensors.text = text
+
+
+func set_lungs(value: float, ring: float = -1.0, dist: float = -1.0) -> void:
+	if _lungs == null:
+		return
+	if value < 0.0 or not RunState.in_raid:
+		_lungs.visible = false
+		if _lungs_bar:
+			_lungs_bar.visible = false
+		return
+	_lungs.visible = true
+	var line := WorldLore.filter_label(value)
+	if ring > 0.0:
+		line += "   RING %.0f" % ring
+		if dist > ring:
+			line += "  BLOOM"
+	_lungs.text = line
+	var col := Color(0.55, 0.9, 0.4)
+	if RunState.bloom_native():
+		col = Color(0.62, 0.95, 0.38)
+	elif value < 40.0:
+		col = Color(0.95, 0.75, 0.25)
+	if value < 18.0 and not RunState.bloom_native():
+		col = Color(0.95, 0.3, 0.2)
+	_lungs.add_theme_color_override("font_color", col)
+	if _lungs_bar:
+		_lungs_bar.visible = true
+		_lungs_bar.value = clampf(value, 0.0, 100.0)
 
 
 func set_heat(ratio: float) -> void:
@@ -288,7 +346,7 @@ func _bay_strip(slot: String) -> void:
 		return
 	if RunState.add_carry(taken):
 		refresh_carry()
-		show_banner("Stripped %s â€” now it's yours." % taken.get("display_name", "part"))
+		show_banner("Stripped %s — now it's yours." % taken.get("display_name", "part"))
 		Fx.play("ui")
 		open_machine_bay(_bay_mech)
 	else:
@@ -720,7 +778,7 @@ func _refresh_deploy_briefing() -> void:
 		if NetSession.is_online() and NetSession.is_host():
 			net.text = "Hosting. Friends join %s port %d. Then you press LAUNCH RAID." % [NetSession.lan_ip_text(), NetSession.PORT]
 		elif NetSession.is_online():
-			net.text = "Joined %s. Wait for the host to launch â€” do not leave this hangar." % NetSession.join_ip
+			net.text = "Joined %s. Wait for the host to launch — do not leave this hangar." % NetSession.join_ip
 		else:
 			net.text = "Offline solo, or host then share your LAN IP. Same Wi-Fi. Port %d." % NetSession.PORT
 
@@ -747,9 +805,10 @@ func _pick_map(m: String) -> void:
 
 
 func _pick_faction(f: String) -> void:
-	RunState.faction = f
+	RunState.apply_faction(f)
 	show_banner("Faction %s" % WorldLore.faction_name(f))
-	RunState.save_state()
+	if not RunState.in_raid:
+		set_objective(WorldLore.hangar_objective(RunState.hangar_tier))
 	_refresh_deploy_briefing()
 
 
@@ -809,6 +868,7 @@ func open_vendor() -> void:
 	var box: VBoxContainer = _vendor.get_node("M/Root/S/V")
 	_add_label(box, WorldLore.vendor_blurb())
 	var offers := [
+		["filter_canister", 22],
 		["armor_plate", 25],
 		["myomer_strand", 30],
 		["cooler_pack", 35],
@@ -823,6 +883,36 @@ func open_vendor() -> void:
 	paint.text = "Decal / paint cycle  15 cr"
 	paint.pressed.connect(_buy_paint)
 	box.add_child(paint)
+	_add_label(box, "Tam buys junk. Not occupation guns. Not shards.")
+	var sell_list := ItemList.new()
+	sell_list.name = "SellList"
+	sell_list.custom_minimum_size = Vector2(0, 140)
+	box.add_child(sell_list)
+	var sell_uids: Array[String] = []
+	for part in RunState.stash:
+		if bool(part.get("is_weapon", false)) or bool(part.get("is_payload", false)):
+			continue
+		sell_uids.append(str(part.get("uid", "")))
+		var quote := maxi(int(float(part.get("value", 10)) * float(part.get("condition", 1.0)) * 0.4), 4)
+		sell_list.add_item("%s  %.0f%%  Tam pays %d cr" % [part.get("display_name", "?"), float(part.get("condition", 1.0)) * 100.0, quote])
+	if sell_uids.is_empty():
+		sell_list.add_item("(nothing Tam will take)")
+		sell_list.set_item_disabled(0, true)
+	var sell := Button.new()
+	sell.text = "Sell selected junk"
+	sell.pressed.connect(func() -> void:
+		var sel := sell_list.get_selected_items()
+		if sel.is_empty() or sel[0] >= sell_uids.size():
+			return
+		var paid := RunState.vendor_sell(sell_uids[sel[0]])
+		if paid >= 0:
+			show_banner("Tam takes it. +%d cr." % paid)
+			refresh_carry()
+			open_vendor()
+		else:
+			show_banner(RunState.last_message if RunState.last_message != "" else "Tam won't take that.")
+	)
+	box.add_child(sell)
 	var close := Button.new()
 	close.text = "Close"
 	close.pressed.connect(close_all_ui)
@@ -864,6 +954,8 @@ func _fit_menu(p: Control) -> void:
 
 func _panel(title: String) -> PanelContainer:
 	var p := PanelContainer.new()
+	p.theme = LOOK.ui_theme()
+	p.add_theme_stylebox_override("panel", LOOK.panel_style())
 	_fit_menu(p)
 	var m := MarginContainer.new()
 	m.name = "M"

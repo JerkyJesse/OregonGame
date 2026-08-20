@@ -1,9 +1,13 @@
 extends Control
 
+const LOOK := preload("res://world/WorldLook.gd")
+
+
 var _crawl_layer: Control
 var _leaving := false
 var _status: Label
 var _ip: LineEdit
+var _showcase: Node3D
 
 
 func _enter_tree() -> void:
@@ -26,10 +30,11 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	_showcase = LOOK.mount_title_world(self)
 	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.06, 0.05, 1)
+	bg.color = Color(0.04, 0.03, 0.02, 0.5)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -46,8 +51,10 @@ func _build() -> void:
 	var title := Label.new()
 	title.text = WorldLore.TITLE
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 34)
-	title.add_theme_color_override("font_color", Color(0.95, 0.62, 0.22))
+	title.add_theme_font_size_override("font_size", 38)
+	title.add_theme_color_override("font_color", Color(0.98, 0.62, 0.18))
+	title.add_theme_color_override("font_outline_color", Color(0.05, 0.02, 0.0, 0.9))
+	title.add_theme_constant_override("outline_size", 8)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(title)
 	var sub := Label.new()
@@ -95,6 +102,11 @@ func _build() -> void:
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(foot)
+
+
+func _process(delta: float) -> void:
+	if _showcase and is_instance_valid(_showcase):
+		_showcase.rotate_y(delta * 0.16)
 
 
 func _add_button(box: VBoxContainer, text: String, cb: Callable) -> void:

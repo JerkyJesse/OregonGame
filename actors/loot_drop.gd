@@ -1,7 +1,10 @@
 extends StaticBody3D
 class_name LootDrop
 
+const LOOK := preload("res://world/WorldLook.gd")
+
 var part: Dictionary = {}
+var _spin: float = 0.0
 
 
 func _ready() -> void:
@@ -10,12 +13,21 @@ func _ready() -> void:
 	collision_mask = 0
 	if has_node("Glow") and part.has("albedo"):
 		var c: Array = part.get("albedo", [1, 0.5, 0.1])
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(float(c[0]), float(c[1]), float(c[2]))
-		mat.emission_enabled = true
-		mat.emission = mat.albedo_color
-		mat.emission_energy_multiplier = 1.8
-		($Glow as MeshInstance3D).material_override = mat
+		($Glow as MeshInstance3D).material_override = LOOK.emit_surface(Color(float(c[0]), float(c[1]), float(c[2])), 2.4)
+	var light := OmniLight3D.new()
+	light.name = "LookLight"
+	light.light_color = Color(1.0, 0.55, 0.15)
+	light.light_energy = 2.2
+	light.omni_range = 4.5
+	add_child(light)
+	LOOK.sparkle(self, Vector3.ZERO, Color(1.0, 0.6, 0.2, 0.7), 0.35)
+
+
+func _process(delta: float) -> void:
+	_spin += delta
+	if has_node("Glow"):
+		$Glow.position.y = sin(_spin * 2.6) * 0.12
+		$Glow.rotate_y(delta * 1.7)
 
 
 func get_interact_label() -> String:
@@ -78,5 +90,10 @@ func rpc_taken() -> void:
 	queue_free()
 
 
-func ai_steal() -> void:
+func ai_steal() -> Dictionary:
+	if part.is_empty():
+		return {}
+	var taken: Dictionary = part
+	part = {}
 	queue_free()
+	return taken

@@ -1,6 +1,8 @@
 class_name MachineBase
 extends CharacterBody3D
 
+const LOOK := preload("res://world/WorldLook.gd")
+
 signal died(world_pos: Vector3)
 signal component_dropped(part: Dictionary, world_pos: Vector3)
 
@@ -85,6 +87,7 @@ func _ensure_cockpit() -> void:
 	_camera.near = 0.05
 	_camera.current = false
 	_camera.cull_mask = 1048575 & ~(1 << (SELF_VISUAL_LAYER - 1))
+	LOOK.tune_camera(_camera)
 	_ray = get_node_or_null("Cockpit/CockpitCamera/InteractRay") as RayCast3D
 	if _ray == null:
 		_ray = RayCast3D.new()
@@ -203,10 +206,14 @@ func apply_loadout() -> void:
 		if child is MeshInstance3D and str(child.name) in ["Torso", "Head", "ArmL", "ArmR", "LegL", "LegR", "Cab", "Bed"]:
 			if hangar_preview or boarded or not disabled:
 				_tint(child, paint.darkened(0.08), false)
+		if child.name == "Visor":
+			_tint(child, Color(1.0, 0.48, 0.12), false)
 		if child.name == "Body":
 			for sub in child.get_children():
 				if sub is MeshInstance3D and str(sub.name) in ["Torso", "Head", "ArmL", "ArmR"]:
 					_tint(sub, paint.darkened(0.08), false)
+				if sub is MeshInstance3D and str(sub.name) == "Visor":
+					_tint(sub, Color(0.85, 0.12, 0.06), false)
 
 
 func _plating_bonus() -> float:
@@ -230,7 +237,10 @@ func _shield_max() -> float:
 
 func has_sensors() -> bool:
 	var s: Variant = equipped.get("sensors", {})
-	return s is Dictionary and str(s.get("id", "")) == "sensor_suite" and float(section_hp.get("sensors", 1.0)) > 0.0
+	if not (s is Dictionary):
+		return false
+	var id := str(s.get("id", ""))
+	return (id == "sensor_suite" or id == "filament_veil") and float(section_hp.get("sensors", 1.0)) > 0.0
 
 
 func best_weapon_name() -> String:
@@ -241,20 +251,10 @@ func best_weapon_name() -> String:
 
 
 func _tint(mesh: MeshInstance3D, color: Color, translucent: bool) -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.85
-	if translucent:
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.albedo_color.a = 0.4
-		mat.emission_enabled = true
-		mat.emission = Color(0.15, 0.45, 0.55)
-		mat.emission_energy_multiplier = 0.8
-	else:
-		mat.emission_enabled = true
-		mat.emission = color
-		mat.emission_energy_multiplier = 0.22
-	mesh.material_override = mat
+	if str(mesh.name) == "Visor":
+		mesh.material_override = LOOK.visor_mat(color if translucent else Color(1.0, 0.5, 0.12))
+		return
+	mesh.material_override = LOOK.paint_mat(color, translucent)
 
 
 func get_interact_label() -> String:
@@ -293,6 +293,7 @@ func board_pilot(scav: Node) -> void:
 		_camera.current = true
 	Hud.set_prompt("COCKPIT  LMB fire   [F] dismount   WASD   mouse look")
 	Hud.set_health(hull)
+	Hud.show_banner(WorldLore.sealed_steel_banner())
 	Fx.play("ui")
 
 
@@ -334,7 +335,7 @@ func reset_channels() -> void:
 func hold_hack_core(scav: Node, delta: float) -> bool:
 	if core_taken:
 		return false
-	_hack += delta * 0.28
+	_hack += delta * RunState.hack_rate()
 	Fx.play("hack")
 	Hud.set_extract(_hack)
 	Hud.set_prompt(WorldLore.decrypting_prompt(_hack * 100.0))
@@ -347,10 +348,14 @@ func hold_hack_core(scav: Node, delta: float) -> bool:
 		if scav is Scavenger:
 			if RunState.add_carry(part, true):
 				Hud.refresh_carry()
-				Hud.show_banner(WorldLore.core_secured_banner())
 			elif RunState.add_carry(part):
 				Hud.refresh_carry()
-				Hud.show_banner(WorldLore.core_carry_banner())
+		Hud.show_banner(WorldLore.first_voice_hack())
+		Hud.set_sensors(WorldLore.first_voice_hack())
+		Fx.play("alarm")
+		var scene := get_tree().current_scene if get_tree() else null
+		if scene and scene.has_method("occupation_answer"):
+			scene.call("occupation_answer", global_position)
 		return true
 	return false
 
@@ -463,6 +468,7 @@ func _pilot_move(delta: float) -> void:
 	if jets:
 		velocity.y = 7.5 if scale_id != "heavy" else 4.2
 		heat += 18.0 * delta
+		Fx.puff(global_position + Vector3(0, 0.35, 0), Color(0.45, 0.75, 1.0))
 	var input_dir := Vector2.ZERO
 	if not Hud.ui_busy and _local_pilot():
 		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -575,6 +581,8 @@ func _hitscan(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
 	if _camera and _camera.is_inside_tree():
 		muzzle = from + (-_camera.global_transform.basis.z) * 1.4
 	Fx.spawn_tracer(muzzle, end, _tracer_color(kind))
+	if hit:
+		Fx.spark(end, _tracer_color(kind))
 
 
 func _tracer_color(kind: String) -> Color:

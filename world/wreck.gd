@@ -1,5 +1,7 @@
 extends StaticBody3D
 
+const LOOK := preload("res://world/WorldLook.gd")
+
 @export var part_id: String = "vulcan_chest"
 @export var extra_ids: PackedStringArray = PackedStringArray()
 
@@ -16,6 +18,15 @@ func _ready() -> void:
 	remaining.append(part_id)
 	for id in extra_ids:
 		remaining.append(id)
+	LOOK.smoke(self, Vector3(0.2, 2.1, 0.3), Color(0.16, 0.14, 0.12, 0.5))
+	if _loot_mesh:
+		_loot_mesh.material_override = LOOK.emit_surface(Color(0.95, 0.45, 0.1), 2.2)
+	var ember := OmniLight3D.new()
+	ember.light_color = Color(1.0, 0.4, 0.1)
+	ember.light_energy = 2.4
+	ember.omni_range = 7.0
+	ember.position = Vector3(0.3, 2.2, 0.6)
+	add_child(ember)
 
 
 func get_interact_label() -> String:
@@ -96,10 +107,12 @@ func rpc_sync_wreck(left: Array, is_looted: bool) -> void:
 		_loot_mesh.visible = false
 
 
-func ai_steal() -> void:
+func ai_steal() -> Dictionary:
 	if remaining.is_empty():
-		return
+		return {}
+	var id := remaining[0]
 	remaining.remove_at(0)
 	if remaining.is_empty() and _loot_mesh:
 		_loot_mesh.visible = false
 		looted = true
+	return RunState.make_part(id, randf_range(0.35, 0.8))
