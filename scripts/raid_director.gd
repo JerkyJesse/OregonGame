@@ -435,7 +435,7 @@ static func _spawn_rivals(world: Node3D, map_id: String) -> void:
 		var bloom_pos := Vector3(18, 0.2, -12) if map_id == "pipeline" else Vector3(22, 0.2, -8)
 		_spawn_face(world, "pale", bloom_pos)
 	if map_id == "pipeline":
-		_spawn_face(world, "wren", Vector3(2, 8.5, 0))
+		_spawn_face(world, "wren", Vector3(0, 0.2, 12))
 		_spawn_face(world, "ash_nine", Vector3(-8, 0.2, 8))
 		return
 	if RunState.raid_mode == "late_drop":
@@ -446,6 +446,7 @@ static func _spawn_rivals(world: Node3D, map_id: String) -> void:
 		_spawn_face(world, "ash_nine", Vector3(10, 0.2, 14))
 		return
 	_spawn_face(world, "pell", Vector3(-8, 0.2, -18))
+	_spawn_face(world, "", Vector3(14, 0.2, 8))
 	world.get_tree().create_timer(48.0).timeout.connect(func() -> void:
 		if not is_instance_valid(world) or not RunState.in_raid:
 			return

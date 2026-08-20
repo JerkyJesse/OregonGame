@@ -74,7 +74,7 @@ func _build() -> void:
 	v.add_theme_constant_override("separation", 10)
 	scroll.add_child(v)
 	_add_button(v, "NEW GAME", _new_game)
-	_add_button(v, "ENTER HANGAR", _enter_hangar)
+	_add_button(v, "ENTER NEW DODGE", _enter_hangar)
 	_add_button(v, "QUICK DEPLOY  (Ash Yard 7, scavenger)", _quick)
 	_add_button(v, "HOST RAID  :%d" % NetSession.PORT, _host)
 	var ip_row := HBoxContainer.new()

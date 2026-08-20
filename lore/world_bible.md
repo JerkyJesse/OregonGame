@@ -168,7 +168,7 @@ Combat mode. Live occupation fight. The marshalling yard is awake. Husks in the 
 
 Radek comes in person. Marshal Ivo Radek: sixty, Corps-straight, a sealed-suit under a marshal’s coat that has been mended until it is only mends. Gray hair clipped to doctrine-length. A face like a closed hatch. He drops in a medium that still has 3rd Sealed Corps parade-paint under the ash. He believes, with the sincerity of a man who has not been allowed to stop believing, that a shard plus a marshal-code plus a loud enough voice will restore human command.
 
-Sera Quill does not drop. Directors do not drop. She sends a medium with her copper chevron and a recorded offer: credits, sealed-air shares, a Compact charter for Nara’s bay. The recording is beautiful. Nara smashes the receiver because the light’s cabin is small and the offer is large and she cannot fit both.
+Sera Quill does not drop. Directors do not drop. She sends a medium with her copper chevron and a recorded offer: credits, sealed-air shares, a Compact charter for Nara’s New Dodge bay. The recording is beautiful. Nara smashes the receiver because the light’s cabin is small and the offer is large and she cannot fit both.
 
 Brask’s heavy arrives at the west extract and sits on it. That is a court in session. The pad is closed. The tax is the shard or the pad stays closed until Pale weather does the paperwork.
 
@@ -328,7 +328,7 @@ Eusocial, distributed, slow compared to a gunfight, fast compared to a treaty. T
 
 **What they are.** Corporate-state leftover. Ledgers, charters, copper chevrons, the belief that occupancy is a market failure. They still stamp serial numbers on hope.
 
-**Look.** White-and-copper where they can keep it clean. Canopies polished. Couriers in slickers. Bays that still smell like solvent instead of despair.
+**Look.** White-and-copper where they can keep it clean. Canopies polished. Couriers in slickers. New Dodge’s copper district still smells like solvent instead of despair.
 
 **How they fight.** Mediums and logistics. Pay for other people’s scavenging. Send **Wren Coil** before they send a heavy. Director **Sera Quill** does not drop; she invoices.
 
@@ -340,7 +340,7 @@ Eusocial, distributed, slow compared to a gunfight, fast compared to a treaty. T
 
 **Creed.** Tarkovic military leftover. Doctrine, sealed bunkers, old actuators.
 
-**What they are.** The army that still has a name. Bunkers that still have seals. Marshal-codes that still get spoken into sockets that no longer answer *sir*. They keep the ring as if a map-line were a trench.
+**What they are.** The army that still has a name. Bunkers that still have seals — including a bunker-museum under New Dodge’s south ring-lock they call a garrison. Marshal-codes that still get spoken into sockets that no longer answer *sir*. They keep the ring as if a map-line were a trench.
 
 **Look.** Gray. Gold-tinted canopy glass. Shin-stencils: HOLD THE RING. Parade-paint under ash.
 
@@ -404,7 +404,7 @@ Sealed atmosphere-and-fuel spine the occupation still uses. Catwalks above, husk
 
 ### Extracts / payload LZs
 
-Green rings on the ground, not to be confused with Pale’s green ring in the sky. Human superstition the Choir currently permits. Payload LZ wants a Choir shard. Brask wants a cut. Pale weather does not care what color you painted the pad.
+Green rings on the ground, not to be confused with Pale’s green ring in the sky. Human superstition the Choir currently permits. Payload LZ wants a Choir shard. Brask wants a cut. Pale weather does not care what color you painted the pad. A successful extract dumps you back through New Dodge’s airlocks. Getting outta Dodge means going home.
 
 ---
 
@@ -426,21 +426,21 @@ Dismount is Driver-2-sacred: you get out, you are meat, you get back in or you s
 
 ### Nara “Cinder” Voss
 
-- **Faction:** Ash Walkers. **Role:** story-cycle protagonist; not the player-token.
+- **Faction:** Ash Walkers. **Role:** story-cycle protagonist; not the player-token. **Home:** a rust bay in New Dodge.
 - **Appearance:** Thirty-one. Sealed-bay pallor. Rust-black hair, shop-shear crop, a cowlick that grease cannot train. Dark eyes with a filter-red rim when she has been outside too long. Filter-scar at the nostrils. Square Corps surplus port behind the left ear, scabbed at the rim. Left ring finger missing from the first knuckle, taped in old warning-yellow. Small, which is a scavenger virtue; shoulders from lifting barrels other people would call “mounted weapons.” A burn across the right hip from a light’s coolant hose (the “Cinder” story Tam tells is a different fire; Nara does not correct him). Clothes: scavenger rig, ash-stained, Helix pouch stolen and restitched, Breaker boot on the left and a Corps boot on the right because that is what fit.
 - **Voice:** Low, dry, Corridor-accent flattened by radio. Does not speechify. Says Tam’s prayer like a checklist.
 - **Gear:** Cutter, bolt-gun, one-hour filter, bag. Later: a light with a Helix gun she should not have mounted. Never a flag.
-- **Motive:** Stay breathing. Keep the bay sealed. Do not become a flag. The shard is an accident she refuses to donate to men with titles.
+- **Motive:** Stay breathing. Keep the New Dodge bay sealed. Do not become a flag. The shard is an accident she refuses to donate to men with titles.
 - **In the story:** Act I scavenges Yard 7 and bolts the gun. Act II hacks the Pipeline shard and refuses the tax. Act III proves command does not return, extracts, lives.
 - **If she dies later:** It will be small: a foot, a filter, a friend. Not a throne-room. The bible leaves her alive so the cycle can repeat.
 
 ### Tam “Picks” Calder
 
-- **Faction:** None he will admit. Bay-stall. Sells to anyone sealed.
+- **Faction:** None he will admit. Bay-stall in New Dodge. Sells to anyone sealed.
 - **Appearance:** Sixty-plus. Foundry shoulders, sealed-bay gut, white stubble that he shaves with a blade meant for myomer. Right eye glass, cheap-coolant green, a Helix medical leftover. Left eye tea-brown, sharp. Hands like cracked hoses. A canvas apron with more decals than fabric. Smells like solvent and the fake tea.
 - **Voice:** Stall-cant. “Spark,” “idiot,” lectures about Choir smelling bought barrels. Never raises it. Walkers can hear raised voices; that is one of his true things.
 - **Gear:** The cage, the stool, junk parts, paints. No occupation guns. No P2W combat gear. A shotgun under the counter he has not loaded since the seeding, because a shotgun is not a theology.
-- **Motive:** Keep the stall. Keep idiots alive enough to buy decals. Do not touch First Voice chips with his hands.
+- **Motive:** Keep the stall. Keep New Dodge’s idiots alive enough to buy decals. Do not touch First Voice chips with his hands.
 - **In the story:** Sends Nara out, insults her in, hides the shard under a decal sheet. The hangar interactable speaks as him.
 - **If he dies:** The stall becomes a hole. Other bays will invent another Tam. This Tam is this bay’s.
 

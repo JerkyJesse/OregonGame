@@ -176,7 +176,7 @@ func _refresh_hostility() -> void:
 		"tax":
 			hostile = not RunState.tax_cleared
 		"jex":
-			hostile = RunState.raid_carry.size() > 0 or RunState.has_raid_payload() or RunState.faction == "pale"
+			hostile = RunState.has_raid_payload() or RunState.raid_carry.size() >= 2 or RunState.faction == "pale"
 		"pell", "wren":
 			hostile = RunState.has_raid_payload() or RunState.faction == "pale"
 		"ash_nine":
@@ -368,8 +368,21 @@ func _try_shoot() -> void:
 
 
 func _player_node() -> Node:
+	var fallback: Node = null
+	for n in get_tree().get_nodes_in_group("scavenger"):
+		if n == self or not (n is Scavenger):
+			continue
+		var scav := n as Scavenger
+		if scav.boarded:
+			continue
+		if scav._local():
+			return scav
+		if fallback == null:
+			fallback = scav
+	if fallback:
+		return fallback
 	for n in get_tree().get_nodes_in_group("player"):
-		if n != self:
+		if n != self and n.is_in_group("machine") and bool(n.get("boarded")):
 			return n
 	return null
 

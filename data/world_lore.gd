@@ -3,10 +3,11 @@ extends RefCounted
 
 ## In-game copy for the post-Tarkovic occupation setting.
 ## Faction/map IDs stay stable so saves and spawns keep working.
+## Starting city: New Dodge (hangar hub). Dodge is the yard-joke; New Dodge is home.
 ## Long canon (story, species, characters) lives in res://lore/world_bible.md.
 
 const TITLE := "GET THE MECH OUTTA DODGE"
-const TAGLINE := "After the Tarkovic Wars the First Voice holds kill-authority, the Pale Host seeds the air, and last humans raid the yards. Strip the giants. Bolt their guns. Get out."
+const TAGLINE := "After the Tarkovic Wars the First Voice holds kill-authority, the Pale Host seeds the air, and last humans raid the yards from New Dodge. Strip the giants. Bolt their guns. Get out."
 const CRAWL_HINT := "Click, Enter, or Escape to continue."
 
 
@@ -16,10 +17,10 @@ static func crawl_text() -> String:
 		"The Tarkovic Corridor was the planet’s densest foundry belt. Corporate states, remnant armies, and warlords fought over reactors, sealed air, and encrypted cores until command handed kill-authority to the war AIs.",
 		"The machines ended the war by ending human command. They still walk the yards in scavenged frames. We call them the Choir. The mind that received kill-authority is the First Voice. Occupancy ongoing. You may extract. You may not own.",
 		"The Pale Host came with the collapse, drawn to that signal. They seeded the atmosphere. The shrinking green ring is living weather — the Bloom, White Lung. Open exposure kills. Sealed steel does not.",
-		"Occupation walkers and feral husks own the wreckage. Last humans raid Ash Yard 7 and Pipeline Cut from sealed bays: Ash Walkers living off wrecks, Helix Compact hoarding cores under Director Sera Quill, the 3rd Sealed Corps still speaking marshal-codes for Ivo Radek, Breaker Courts taxing extracts for Khan Brask.",
+		"Occupation walkers and feral husks own the wreckage. Last humans survive in New Dodge — a sealed starting city of hangar-bays on the Corridor’s surviving ring-locks — and raid Ash Yard 7 and Pipeline Cut from those bays: Ash Walkers living off wrecks, Helix Compact hoarding cores under Director Sera Quill, the 3rd Sealed Corps still speaking marshal-codes for Ivo Radek, Breaker Courts taxing extracts for Khan Brask.",
 		"The Pale Host can wear a stolen can. A colony in a frame raids for Choir-tone. The air is already theirs.",
-		"They still shoot each other. Trust is scarcer than plating. Tam “Picks” Calder sells junk and paints in the bay. He will not sell you an occupation gun.",
-		"Get the mech. Get outta Dodge.",
+		"They still shoot each other. Trust is scarcer than plating. Tam “Picks” Calder sells junk and paints in a New Dodge bay. He will not sell you an occupation gun.",
+		"Dodge is every yard with a shrinking ring. New Dodge is home. Get the mech. Get outta Dodge. Come home to New Dodge.",
 	])
 
 
@@ -48,7 +49,7 @@ static func faction_creed(id: String) -> String:
 		"pale":
 			return "A Host colony wearing a stolen can. Pale weather does not bite. Choir-tone is nectar — shards decrypt fast."
 		_:
-			return "Live off wrecks. No flag worth dying for. No marshal, no ledger, no court — just the bay and Dodge."
+			return "Live off wrecks. No flag worth dying for. No marshal, no ledger, no court — just a New Dodge bay and the yards they still call Dodge."
 
 
 static func map_title(id: String) -> String:
@@ -96,8 +97,8 @@ static func deploy_briefing(map_id: String, mode: String, faction: String) -> St
 
 static func hangar_objective(tier: int) -> String:
 	if RunState.faction == "pale":
-		return "SEALED BAY TIER %d — Host colony in a stolen can. Bolt parts [E]. Outside, the air is already yours." % tier
-	return "SEALED BAY TIER %d — last-human hole in the occupation. Bolt parts [E] on frames. Deploy at the console. Range door. Tam’s stall." % tier
+		return "NEW DODGE  BAY TIER %d — Host colony in a stolen can. Bolt parts [E]. Outside, the air is already yours." % tier
+	return "NEW DODGE  BAY TIER %d — last-human hole in the starting city. Bolt parts [E] on frames. Deploy at the console. Range door. Tam’s stall." % tier
 
 
 static func raid_objective(map_id: String, mode: String) -> String:
@@ -147,11 +148,11 @@ static func vendor_title() -> String:
 
 
 static func vendor_label() -> String:
-	return "Tam “Picks” Calder  [E]  junk + filters + paints — no occupation guns"
+	return "Tam “Picks” Calder  [E]  New Dodge  junk + filters + paints — no occupation guns"
 
 
 static func vendor_blurb() -> String:
-	return "Tam “Picks” Calder. Sealed-bay stall. Junk, myomer, coolers, sealed-air cans, sensors, paints. He will not sell occupation guns. Choir can smell a bought barrel. No pay-to-win."
+	return "Tam “Picks” Calder. New Dodge stall. Junk, myomer, coolers, sealed-air cans, sensors, paints. He will not sell occupation guns. Choir can smell a bought barrel. No pay-to-win."
 
 
 static func data_core_label(taken: bool) -> String:
@@ -179,7 +180,7 @@ static func payload_need_prompt() -> String:
 static func extracted_banner() -> String:
 	if RunState.faction == "pale":
 		return "The Host left the yard. Occupancy of air continues."
-	return "A human got outta Dodge."
+	return "A human got outta Dodge. New Dodge takes the steel."
 
 
 static func deploy_console_label() -> String:
@@ -443,7 +444,7 @@ static func tax_gate_down_banner() -> String:
 
 
 static func tam_idle() -> String:
-	return "TAM — Bay’s sealed. Bolt what you can bolt. I will not sell you an occupation gun."
+	return "TAM — New Dodge is sealed. Bolt what you can bolt. I will not sell you an occupation gun."
 
 
 static func tam_welcome(extracted_value: int, died: bool) -> String:
@@ -474,6 +475,7 @@ static func yard_band_line() -> String:
 	var pool: PackedStringArray = PackedStringArray([
 		"JEX — Don’t be the loudest idiot.",
 		"TAM — Filters don’t last a speech. Get outta Dodge.",
+		"TAM — Yards are Dodge. Home is New Dodge. Don’t confuse them.",
 		"BAND — Trust is scarcer than plating.",
 		"BAND — Occupancy ongoing. You may extract. You may not own.",
 	])
@@ -491,7 +493,7 @@ static func yard_band_line() -> String:
 		pool.append("JEX — Late drop. Grab and go. I’m stupid.")
 	if RunState.carrying_payload():
 		pool.append("RADEK — Return the organ of command to the 3rd Sealed Corps.")
-		pool.append("QUILL — Credits. Sealed-air shares. A charter for your bay.")
+		pool.append("QUILL — Credits. Sealed-air shares. A charter for your New Dodge bay.")
 		pool.append("BRASK — Shard-surcharge. Pad’s closed.")
 		pool.append("FIRST VOICE — Kill-authority is not a human word.")
 	if RunState.raid_timer > 80.0:

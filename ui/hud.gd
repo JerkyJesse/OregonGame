@@ -550,7 +550,7 @@ func _on_paint() -> void:
 
 func _on_upgrade() -> void:
 	if RunState.try_upgrade_hangar():
-		show_banner("Hangar expanded to tier %d." % RunState.hangar_tier)
+		show_banner("New Dodge bay expanded to tier %d." % RunState.hangar_tier)
 	else:
 		show_banner("Need %d cr or already max." % (RunState.hangar_tier * 400))
 	refresh_carry()
