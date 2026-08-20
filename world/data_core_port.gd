@@ -23,8 +23,11 @@ func get_interact_label() -> String:
 func interact(actor: Node) -> void:
 	if taken:
 		return
-	# Tap still nudges; hold is handled by looking + E in the machine bay / hold_hack_core.
 	if actor is Scavenger:
-		var mech := get_parent()
-		if mech and mech.has_method("hold_hack_core"):
-			mech.call("hold_hack_core", actor, 0.22)
+		hold_hack(actor, 0.22)
+
+
+func hold_hack(actor: Node, delta: float) -> void:
+	var mech := get_parent()
+	if mech and mech.has_method("hold_hack_core"):
+		mech.call("hold_hack_core", actor, delta)

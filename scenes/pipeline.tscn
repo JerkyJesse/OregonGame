@@ -63,4 +63,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 8.2, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 0, -8)
 
 [node name="Scavenger" parent="." instance=ExtResource("2_scav")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 0.2, -10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -22, 1.1, -10)

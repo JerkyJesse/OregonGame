@@ -1,6 +1,7 @@
 extends CharacterBody3D
 class_name Scavenger
 
+const LOOK := preload("res://world/WorldLook.gd")
 const SPEED := 6.4
 const SPRINT := 8.8
 const JUMP_VELOCITY := 6.4
@@ -13,6 +14,8 @@ var boarded: bool = false
 var crawling: bool = false
 var _fire_cd: float = 0.0
 var peer_id: int = 1
+var spawn_point: Vector3 = Vector3.ZERO
+var spawn_protect: float = 0.0
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _ray: RayCast3D = $Camera3D/InteractRay
@@ -23,8 +26,25 @@ var peer_id: int = 1
 func _ready() -> void:
 	add_to_group("player")
 	add_to_group("scavenger")
+	floor_snap_length = 0.5
 	set_multiplayer_authority(peer_id)
+	if spawn_point == Vector3.ZERO:
+		spawn_point = global_position
+	if RunState.in_raid:
+		spawn_protect = 5.0
+	_paint_faction()
 	call_deferred("_boot_camera")
+
+
+func _paint_faction() -> void:
+	if _mesh == null:
+		return
+	var col := WorldLore.faction_color(RunState.faction)
+	if RunState.faction == "pale":
+		_mesh.material_override = LOOK.emit_surface(Color(0.4, 0.85, 0.22), 0.45)
+	else:
+		_mesh.material_override = LOOK.paint_mat(col)
+	LOOK.dress_human(self, col, true)
 
 
 func _boot_camera() -> void:
@@ -38,6 +58,7 @@ func _boot_camera() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if _camera:
 		_camera.current = _local() and not boarded
+		LOOK.tune_camera(_camera)
 
 
 func set_boarded(value: bool) -> void:
@@ -80,9 +101,10 @@ func _local() -> bool:
 
 
 func _physics_process(delta: float) -> void:
-	if boarded or not Hud.gameplay_active:
+	if boarded or not Hud.gameplay_active or not is_inside_tree() or get_world_3d() == null:
 		return
 	_fire_cd = maxf(_fire_cd - delta, 0.0)
+	spawn_protect = maxf(spawn_protect - delta, 0.0)
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 	elif Input.is_action_just_pressed("jump") and not Hud.ui_busy and _local():
@@ -106,7 +128,11 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 	move_and_slide()
 
-	if global_position.y < -20.0:
+	if global_position.y < -8.0:
+		if RunState.in_raid and RunState.raid_timer < 4.0:
+			global_position = spawn_point
+			velocity = Vector3.ZERO
+			return
 		take_damage(999.0)
 		return
 
@@ -136,6 +162,8 @@ func _rpc_pose(pos: Vector3, yaw: float, pitch: float) -> void:
 func _update_interact(delta: float) -> void:
 	if Hud.ui_busy:
 		return
+	if Input.is_action_just_pressed("use_item") and not boarded:
+		_try_filter()
 	if _in_extract():
 		if Input.is_action_just_pressed("board"):
 			_try_board_nearby()
@@ -147,17 +175,32 @@ func _update_interact(delta: float) -> void:
 			target.call("interact", self)
 		if Input.is_action_pressed("hotwire") and target.has_method("hold_hotwire"):
 			target.call("hold_hotwire", self, delta)
-		elif target.has_method("reset_channels") and not Input.is_action_pressed("hotwire"):
+		elif target.has_method("reset_channels") and not Input.is_action_pressed("hotwire") and not Input.is_action_pressed("interact"):
 			target.call("reset_channels")
-		if Input.is_action_pressed("interact") and target.has_method("hold_hack_core") and Input.is_key_pressed(KEY_SHIFT):
+		if Input.is_action_pressed("interact") and target.has_method("hold_hack"):
+			target.call("hold_hack", self, delta)
+		elif Input.is_action_pressed("interact") and target.has_method("hold_hack_core") and (Input.is_key_pressed(KEY_SHIFT) or target.is_in_group("shard_dais")):
 			target.call("hold_hack_core", self, delta)
 	else:
-		Hud.set_prompt("LMB scav gun   [E] use   [F] board   [G] hold hotwire   CTRL crawl")
+		var hint := "LMB scav gun   [E] use   [F] board   [G] hotwire   CTRL crawl"
+		if RunState.has_filter_pack():
+			hint += "   [R] swap filter"
+		Hud.set_prompt(hint)
 		_decay_nearby_channels()
 	if Input.is_action_just_pressed("board"):
 		_try_board_nearby()
 	if Input.is_action_just_pressed("deploy"):
 		_try_deploy()
+
+
+func _try_filter() -> void:
+	if RunState.use_filter_pack():
+		Hud.refresh_carry()
+		Hud.show_banner(WorldLore.filter_swapped_banner())
+		Hud.set_lungs(RunState.filter)
+		Fx.play("ui")
+	elif RunState.last_message != "":
+		Hud.show_banner(RunState.last_message)
 
 
 func _decay_nearby_channels() -> void:
@@ -265,6 +308,8 @@ func _scav_hitscan(from: Vector3, to: Vector3) -> void:
 			elif n.has_method("take_damage"):
 				n.call("take_damage", 8.0)
 	Fx.spawn_tracer(from + (-_camera.global_transform.basis.z) * 0.8, end, Color(0.9, 0.85, 0.5))
+	if hit:
+		Fx.spark(end, Color(1.0, 0.75, 0.35))
 
 
 @rpc("any_peer", "reliable")
@@ -274,12 +319,12 @@ func _rpc_scav_shot(from: Vector3, to: Vector3) -> void:
 	_scav_hitscan(from, to)
 
 
-func take_damage(amount: float) -> void:
-	if boarded or not RunState.in_raid:
+func take_damage(amount: float, cause: String = "") -> void:
+	if boarded or not RunState.in_raid or spawn_protect > 0.0:
 		return
 	if not _local() and NetSession.is_online():
 		return
 	RunState.health -= amount
 	Hud.set_health(RunState.health)
 	if RunState.health <= 0.0:
-		RunState.fail_raid("You died. Unsecured loot was lost.")
+		RunState.fail_raid(WorldLore.death_banner(cause))

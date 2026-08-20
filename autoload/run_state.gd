@@ -5,7 +5,7 @@ const PART_DIR := "res://data/parts/"
 const SCHEMA := 2
 const SLOTS: Array[String] = ["chest", "arm_l", "arm_r", "legs", "reactor", "sensors", "utility"]
 const SCALES: Array[String] = ["light", "armor", "medium", "heavy", "vehicle"]
-const FACTIONS: Array[String] = ["corporate", "scav", "remnant", "warlord"]
+const FACTIONS: Array[String] = ["corporate", "scav", "remnant", "warlord", "pale"]
 const PAINTS: Array[Color] = [
 	Color(0.52, 0.27, 0.12),
 	Color(0.18, 0.22, 0.28),
@@ -13,6 +13,7 @@ const PAINTS: Array[Color] = [
 	Color(0.55, 0.48, 0.22),
 	Color(0.12, 0.12, 0.14),
 	Color(0.62, 0.18, 0.12),
+	Color(0.48, 0.86, 0.32),
 ]
 
 const SCALE_CAPS := {
@@ -43,6 +44,9 @@ var deploy_scale: String = "scavenger"
 var raid_timer: float = 0.0
 var heavy_engaged: bool = false
 var extracted_value: int = 0
+var filter: float = 100.0
+var tax_cleared: bool = false
+const FILTER_MAX := 100.0
 
 
 func _ready() -> void:
@@ -76,6 +80,7 @@ func new_game() -> void:
 	stash.append(make_part("compact_reactor", 0.8))
 	stash.append(make_part("myomer_strand", 0.92))
 	stash.append(make_part("sensor_suite", 0.9))
+	stash.append(make_part("filter_canister", 1.0))
 	_seed_starter_loadout()
 	save_state()
 
@@ -131,7 +136,7 @@ func catalog_ids() -> PackedStringArray:
 		"vulcan_chest", "knee_vulcan", "pulse_cannon", "missile_pod", "pile_bunker",
 		"armor_plate", "heavy_plating", "actuator_leg", "myomer_strand",
 		"reactor_core", "compact_reactor", "cooler_pack", "sensor_suite",
-		"jump_jets", "data_core", "shield_emitter",
+		"jump_jets", "data_core", "shield_emitter", "filament_veil", "filter_canister",
 	])
 
 
@@ -277,6 +282,144 @@ func carry_limit() -> float:
 	return cap(deploy_scale, "weight") * 0.45 + 8.0
 
 
+func carry_value() -> int:
+	var v := 0
+	for part in raid_carry:
+		v += int(part.get("value", 10))
+	for part in secure_carry:
+		v += int(part.get("value", 10))
+	return v
+
+
+func carrying_payload() -> bool:
+	for part in raid_carry:
+		if bool(part.get("is_payload", false)):
+			return true
+	for part in secure_carry:
+		if bool(part.get("is_payload", false)):
+			return true
+	return false
+
+
+func has_filter_pack() -> bool:
+	return _filter_index(raid_carry) >= 0 or _filter_index(secure_carry) >= 0
+
+
+func use_filter_pack() -> bool:
+	if bloom_native():
+		last_message = "The air is already yours."
+		return false
+	if filter >= FILTER_MAX - 2.0:
+		last_message = "Filter still has hours."
+		return false
+	var bag := raid_carry
+	var idx := _filter_index(raid_carry)
+	if idx < 0:
+		bag = secure_carry
+		idx = _filter_index(secure_carry)
+	if idx < 0:
+		last_message = "No sealed-air can in the bag. Buy one from Tam or strip a wreck."
+		return false
+	bag.remove_at(idx)
+	filter = FILTER_MAX
+	last_message = ""
+	return true
+
+
+func _filter_index(bag: Array[Dictionary]) -> int:
+	for i in bag.size():
+		if str(bag[i].get("id", "")) == "filter_canister":
+			return i
+	return -1
+
+
+func _pack_raid_kit() -> void:
+	if has_filter_pack():
+		return
+	for i in stash.size():
+		if str(stash[i].get("id", "")) != "filter_canister":
+			continue
+		var can: Dictionary = stash[i]
+		stash.remove_at(i)
+		if not add_carry(can):
+			stash.insert(i, can)
+		return
+
+
+func _filter_gear_mul() -> float:
+	if deploy_scale == "scavenger":
+		return 1.0
+	var s := _active_scale()
+	var mul := 1.0
+	for slot in SLOTS:
+		var id := str(get_equipped(slot, s).get("id", ""))
+		if id == "filter_canister":
+			mul = minf(mul, 0.42)
+		elif id == "cooler_pack":
+			mul = minf(mul, 0.78)
+	return mul
+
+
+func tax_cost() -> int:
+	if faction == "warlord":
+		return 0
+	var cost := 35 + int(float(carry_value()) * 0.2)
+	if carrying_payload():
+		cost += 90
+	return cost
+
+
+func bloom_native() -> bool:
+	return faction == "pale"
+
+
+func hack_rate() -> float:
+	return 0.42 if bloom_native() else 0.28
+
+
+func apply_faction(id: String) -> void:
+	if not FACTIONS.has(id):
+		return
+	faction = id
+	if id == "pale":
+		if paint_index == 0:
+			paint_index = PAINTS.size() - 1
+		_ensure_pale_kit()
+	save_state()
+	get_tree().call_group("machine", "apply_loadout")
+	get_tree().call_group("scavenger", "_paint_faction")
+
+
+func _ensure_pale_kit() -> void:
+	if _has_part("filament_veil"):
+		return
+	var veil := make_part("filament_veil", 0.94)
+	if veil.is_empty():
+		return
+	var current := get_equipped("sensors", "light")
+	if current.is_empty() or str(current.get("id", "")) == "sensor_suite":
+		if not current.is_empty():
+			stash.append(current)
+		loadouts["light"]["sensors"] = veil
+		loadouts["armor"]["sensors"] = make_part("filament_veil", 0.9)
+	else:
+		stash.append(veil)
+	var util := get_equipped("utility", "light")
+	if util.is_empty():
+		loadouts["light"]["utility"] = make_part("cooler_pack", 0.88)
+
+
+func _has_part(id: String) -> bool:
+	for part in stash:
+		if str(part.get("id", "")) == id:
+			return true
+	for scale in SCALES:
+		for slot in SLOTS:
+			if str(get_equipped(slot, scale).get("id", "")) == id:
+				return true
+	return false
+
+
 func can_carry(part: Dictionary) -> bool:
 	return carry_weight() + float(part.get("weight", 0.0)) <= carry_limit() + 0.01
 
@@ -291,6 +434,9 @@ func begin_raid() -> void:
 	raid_timer = 0.0
 	heavy_engaged = false
 	extracted_value = 0
+	filter = FILTER_MAX
+	tax_cleared = faction == "warlord"
+	_pack_raid_kit()
 
 
 func add_carry(part: Dictionary, secure: bool = false) -> bool:
@@ -324,10 +470,9 @@ func extract_to_hangar() -> void:
 	secure_carry.clear()
 	in_raid = false
 	health = 100.0
-	if n > 0:
-		last_message = "Extracted %d part%s  +%d cr." % [n, "" if n == 1 else "s", value]
-	else:
-		last_message = "Extracted empty-handed."
+	filter = FILTER_MAX
+	tax_cleared = false
+	last_message = WorldLore.tam_extract(n, value)
 	save_state()
 	if NetSession.is_online():
 		NetSession.disconnect_game()
@@ -338,6 +483,7 @@ func fail_raid(reason: String, lose_machine: bool = false) -> void:
 	raid_carry.clear()
 	in_raid = false
 	health = 100.0
+	extracted_value = 0
 	if lose_machine and deploy_scale in SCALES:
 		var s: String = deploy_scale
 		var pack: Variant = loadouts.get(s, {})
@@ -351,7 +497,9 @@ func fail_raid(reason: String, lose_machine: bool = false) -> void:
 			stash.append(part)
 		reason += "  Secure container recovered."
 	secure_carry.clear()
-	last_message = reason
+	filter = FILTER_MAX
+	tax_cleared = false
+	last_message = WorldLore.tam_died(reason)
 	save_state()
 	if NetSession.is_online():
 		NetSession.disconnect_game()
@@ -443,6 +591,55 @@ func vendor_buy(id: String, cost: int) -> bool:
 	stash.append(part)
 	save_state()
 	return true
+
+
+func vendor_sell(uid: String) -> int:
+	var idx := find_stash_index(uid)
+	if idx < 0:
+		return -1
+	var part: Dictionary = stash[idx]
+	if bool(part.get("is_weapon", false)) or bool(part.get("is_payload", false)):
+		last_message = "Tam will not take occupation guns or shards."
+		return -1
+	var pay := maxi(int(float(part.get("value", 10)) * float(part.get("condition", 1.0)) * 0.4), 4)
+	credits += pay
+	stash.remove_at(idx)
+	save_state()
+	return pay
+
+
+func has_raid_payload() -> bool:
+	return carrying_payload()
+
+
+func pay_tax() -> bool:
+	if tax_cleared:
+		return true
+	var c := tax_cost()
+	if c <= 0:
+		tax_cleared = true
+		return true
+	if credits < c:
+		return false
+	credits -= c
+	tax_cleared = true
+	return true
+
+
+func tick_filter(delta: float, sealed: bool, in_bloom: bool) -> String:
+	if not in_raid:
+		return ""
+	if bloom_native():
+		filter = FILTER_MAX
+		return ""
+	if sealed:
+		filter = minf(FILTER_MAX, filter + 9.0 * delta)
+		return ""
+	var drain := (14.0 if in_bloom else 1.55) * _filter_gear_mul()
+	filter = maxf(0.0, filter - drain * delta)
+	if filter > 0.0:
+		return ""
+	return "bloom" if in_bloom else "haze"
 
 
 func hotwire_chance() -> float:

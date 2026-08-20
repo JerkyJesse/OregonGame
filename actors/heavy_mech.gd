@@ -39,7 +39,7 @@ func _on_stomp_body_entered(body: Node) -> void:
 		if not scav.boarded:
 			Hud.show_banner("Crushed.")
 			Fx.play("stomp")
-			scav.take_damage(999.0)
+			scav.take_damage(999.0, "crush")
 
 
 func pry_plate(scav: Node) -> void:

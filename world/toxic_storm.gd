@@ -1,9 +1,13 @@
 extends Node3D
 class_name ToxicStorm
 
+const LOOK := preload("res://world/WorldLook.gd")
+
 var radius: float = 70.0
 var _pulse: float = 0.0
 var _warn: float = 0.0
+var _filter_warn: float = 0.0
+var _stage: int = 0
 var _ring: MeshInstance3D
 
 
@@ -15,48 +19,93 @@ func _ready() -> void:
 	torus.outer_radius = 70.6
 	torus.rings = 48
 	torus.ring_segments = 12
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.7, 0.85, 0.2, 0.55)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color(0.55, 0.9, 0.15)
-	mat.emission_energy_multiplier = 1.8
-	torus.material = mat
+	torus.material = LOOK.emit_surface(Color(0.62, 0.95, 0.28, 0.55), 2.4, 0.5)
 	_ring.mesh = torus
 	_ring.rotation_degrees.x = 90.0
 	_ring.position.y = 0.4
 	add_child(_ring)
 	var light := OmniLight3D.new()
-	light.light_color = Color(0.6, 1.0, 0.2)
-	light.light_energy = 2.0
-	light.omni_range = 12.0
-	light.position = Vector3(0, 4, 0)
+	light.light_color = Color(0.55, 1.0, 0.28)
+	light.light_energy = 3.2
+	light.omni_range = 18.0
+	light.position = Vector3(0, 5, 0)
+	light.light_volumetric_fog_energy = 1.6
 	add_child(light)
+	LOOK.dust(self, Vector3(42, 12, 42), Color(0.5, 0.85, 0.28, 0.14), 48)
 
 
 func _process(delta: float) -> void:
 	if not RunState.in_raid:
+		Hud.set_lungs(-1.0)
 		return
 	_pulse += delta
 	_warn = maxf(_warn - delta, 0.0)
+	_filter_warn = maxf(_filter_warn - delta, 0.0)
 	radius = maxf(18.0, 70.0 - RunState.raid_timer * 0.35)
 	if _ring and _ring.mesh is TorusMesh:
 		var t := _ring.mesh as TorusMesh
 		t.inner_radius = maxf(radius - 0.7, 0.5)
 		t.outer_radius = radius + 0.7
+		_ring.rotate_y(delta * 0.12)
+	LOOK.set_pale(get_parent(), clampf(1.0 - radius / 70.0, 0.0, 0.95))
+	_tick_stage()
+	var local_foot := false
+	var foot_dist := 0.0
+	for n in get_tree().get_nodes_in_group("scavenger"):
+		if not (n is Scavenger):
+			continue
+		var scav := n as Scavenger
+		if not scav._local():
+			continue
+		if scav.boarded:
+			RunState.tick_filter(delta, true, false)
+			Hud.set_lungs(RunState.filter)
+			continue
+		local_foot = true
+		foot_dist = Vector2(scav.global_position.x, scav.global_position.z).length()
+		var in_bloom := foot_dist > radius
+		var cause := RunState.tick_filter(delta, false, in_bloom)
+		Hud.set_lungs(RunState.filter, radius, foot_dist)
+		if cause != "":
+			var dps := 16.0 if cause == "bloom" else 4.0
+			scav.take_damage(dps * delta, cause)
+			if _warn <= 0.0:
+				Hud.show_banner(WorldLore.storm_banner() if cause == "bloom" else WorldLore.haze_banner())
+				_warn = 2.4
+		elif in_bloom and _warn <= 0.0:
+			Hud.show_banner(WorldLore.storm_banner())
+			_warn = 2.8
+		if RunState.filter < 18.0 and _filter_warn <= 0.0 and not RunState.bloom_native():
+			Hud.show_banner(WorldLore.filter_critical_banner())
+			_filter_warn = 8.0
+	if local_foot:
+		Hud.set_lungs(RunState.filter, radius, foot_dist)
 	for n in get_tree().get_nodes_in_group("player"):
-		if n is Node3D:
+		if n is Node3D and n.is_in_group("machine"):
 			var p := n as Node3D
 			var d := Vector2(p.global_position.x, p.global_position.z).length()
-			if d > radius:
-				if n is Scavenger:
-					(n as Scavenger).take_damage(14.0 * delta)
-				elif n.is_in_group("machine"):
-					n.call("take_damage", 8.0 * delta)
-				if _warn <= 0.0:
-					Hud.show_banner(WorldLore.storm_banner())
-					_warn = 2.4
+			if d > radius and not RunState.bloom_native():
+				n.call("take_damage", 6.0 * delta)
 
 
 func current_radius() -> float:
 	return radius
+
+
+func _tick_stage() -> void:
+	var next := 0
+	if radius <= 55.0:
+		next = 1
+	if radius <= 40.0:
+		next = 2
+	if radius <= 28.0:
+		next = 3
+	if next <= _stage:
+		return
+	_stage = next
+	if get_tree():
+		get_tree().call_group("yard_band", "push", WorldLore.storm_stage_band(_stage))
+	if _stage >= 2:
+		Hud.show_banner(WorldLore.storm_stage_band(_stage))
+		Fx.play("alarm")
+

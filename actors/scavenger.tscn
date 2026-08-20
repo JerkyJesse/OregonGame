@@ -41,7 +41,9 @@ collision_mask = 13
 collide_with_areas = true
 
 [node name="SpotLight3D" type="SpotLight3D" parent="Camera3D"]
-spot_range = 18.0
-spot_angle = 32.0
-light_energy = 0.55
-light_color = Color(1, 0.92, 0.78, 1)
+spot_range = 24.0
+spot_angle = 34.0
+light_energy = 1.45
+light_color = Color(1, 0.9, 0.72, 1)
+light_volumetric_fog_energy = 1.7
+shadow_enabled = false

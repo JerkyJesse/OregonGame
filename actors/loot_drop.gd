@@ -1,7 +1,10 @@
 extends StaticBody3D
 class_name LootDrop
 
+const LOOK := preload("res://world/WorldLook.gd")
+
 var part: Dictionary = {}
+var _spin: float = 0.0
 
 
 func _ready() -> void:
@@ -10,12 +13,21 @@ func _ready() -> void:
 	collision_mask = 0
 	if has_node("Glow") and part.has("albedo"):
 		var c: Array = part.get("albedo", [1, 0.5, 0.1])
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(float(c[0]), float(c[1]), float(c[2]))
-		mat.emission_enabled = true
-		mat.emission = mat.albedo_color
-		mat.emission_energy_multiplier = 1.8
-		($Glow as MeshInstance3D).material_override = mat
+		($Glow as MeshInstance3D).material_override = LOOK.emit_surface(Color(float(c[0]), float(c[1]), float(c[2])), 2.4)
+	var light := OmniLight3D.new()
+	light.name = "LookLight"
+	light.light_color = Color(1.0, 0.55, 0.15)
+	light.light_energy = 2.2
+	light.omni_range = 4.5
+	add_child(light)
+	LOOK.sparkle(self, Vector3.ZERO, Color(1.0, 0.6, 0.2, 0.7), 0.35)
+
+
+func _process(delta: float) -> void:
+	_spin += delta
+	if has_node("Glow"):
+		$Glow.position.y = sin(_spin * 2.6) * 0.12
+		$Glow.rotate_y(delta * 1.7)
 
 
 func get_interact_label() -> String:
@@ -29,13 +41,59 @@ func interact(_actor: Node) -> void:
 		return
 	if not NetSession.sanity_loot(part):
 		return
-	if RunState.add_carry(part):
+	if NetSession.is_online() and not NetSession.is_host():
+		rpc_request_loot.rpc_id(1)
+		return
+	_host_give(NetSession.local_id())
+
+
+func _host_give(peer_id: int) -> void:
+	if part.is_empty():
+		return
+	var taken: Dictionary = part
+	if peer_id == NetSession.local_id():
+		if not RunState.add_carry(taken):
+			Hud.show_banner("Carry full.")
+			return
 		Hud.refresh_carry()
-		Hud.show_banner("Picked up %s" % part.get("display_name", "part"))
+		Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
+		part = {}
+		rpc_taken.rpc()
 		queue_free()
+		return
+	rpc_grant_part.rpc_id(peer_id, taken)
+	part = {}
+	rpc_taken.rpc()
+	queue_free()
+
+
+@rpc("any_peer", "reliable")
+func rpc_request_loot() -> void:
+	if not NetSession.is_host():
+		return
+	_host_give(multiplayer.get_remote_sender_id())
+
+
+@rpc("authority", "reliable")
+func rpc_grant_part(taken: Dictionary) -> void:
+	if not NetSession.sanity_loot(taken):
+		return
+	if RunState.add_carry(taken):
+		Hud.refresh_carry()
+		Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
 	else:
 		Hud.show_banner("Carry full.")
 
 
-func ai_steal() -> void:
+@rpc("authority", "call_remote", "reliable")
+func rpc_taken() -> void:
 	queue_free()
+
+
+func ai_steal() -> Dictionary:
+	if part.is_empty():
+		return {}
+	var taken: Dictionary = part
+	part = {}
+	queue_free()
+	return taken

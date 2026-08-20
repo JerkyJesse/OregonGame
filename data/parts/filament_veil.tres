@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="PartData" format=3]
+
+[ext_resource type="Script" path="res://data/part_data.gd" id="1_part"]
+
+[resource]
+script = ExtResource("1_part")
+id = "filament_veil"
+display_name = "Filament Veil"
+slot = "sensors"
+condition = 1.0
+rarity = "rare"
+scales = PackedStringArray("light", "armor", "medium", "heavy", "vehicle")
+weight = 1.8
+volume = 0.4
+heat_gen = 0
+power_draw = 2
+power_output = 0
+durability = 45
+damage = 0
+value = 95
+is_weapon = false
+weapon_kind = ""
+faction_tag = "pale"
+albedo = Color(0.62, 0.92, 0.38, 1)
+is_payload = false

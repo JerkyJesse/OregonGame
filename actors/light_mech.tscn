@@ -1,14 +1,24 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://actors/light_mech.gd" id="1_mech"]
 [ext_resource type="Script" path="res://actors/slot_hotspot.gd" id="2_slot"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_rust"]
 albedo_color = Color(0.52, 0.27, 0.12, 1)
-roughness = 0.9
+metallic = 0.35
+roughness = 0.55
 
 [sub_resource type="StandardMaterial3D" id="Mat_dark"]
 albedo_color = Color(0.18, 0.18, 0.2, 1)
+metallic = 0.4
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="Mat_visor"]
+albedo_color = Color(1, 0.52, 0.12, 1)
+roughness = 0.12
+emission_enabled = true
+emission = Color(1, 0.48, 0.1, 1)
+emission_energy_multiplier = 2.8
 
 [sub_resource type="BoxMesh" id="BoxMesh_unit"]
 size = Vector3(1, 1, 1)
@@ -37,6 +47,7 @@ surface_material_override/0 = SubResource("Mat_dark")
 [node name="Visor" type="MeshInstance3D" parent="."]
 transform = Transform3D(0.9, 0, 0, 0, 0.28, 0, 0, 0, 0.15, 0, 7.2, 1.02)
 mesh = SubResource("BoxMesh_unit")
+surface_material_override/0 = SubResource("Mat_visor")
 
 [node name="LegL" type="MeshInstance3D" parent="."]
 transform = Transform3D(0.7, 0, 0, 0, 3.6, 0, 0, 0, 0.85, -0.85, 1.8, 0)

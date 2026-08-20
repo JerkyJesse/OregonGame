@@ -1,15 +1,13 @@
 class_name Greybox
 extends RefCounted
 
-static func mat(color: Color, emit: float = 0.0) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 0.92
+const LOOK := preload("res://world/WorldLook.gd")
+
+
+static func mat(color: Color, emit: float = 0.0) -> Material:
 	if emit > 0.0:
-		m.emission_enabled = true
-		m.emission = color
-		m.emission_energy_multiplier = emit
-	return m
+		return LOOK.emit_surface(color, emit)
+	return LOOK.surface(color)
 
 
 static func add_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, emit: float = 0.0) -> StaticBody3D:
@@ -46,20 +44,7 @@ static func add_collider(parent: Node3D, pos: Vector3, size: Vector3) -> void:
 
 
 static func industrial_env(fog: Color, dens: float) -> Environment:
-	var e := Environment.new()
-	e.background_mode = Environment.BG_COLOR
-	e.background_color = fog.darkened(0.55)
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.45, 0.38, 0.3)
-	e.ambient_light_energy = 0.42
-	e.tonemap_mode = Environment.TONE_MAPPER_ACES
-	e.fog_enabled = true
-	e.fog_light_color = fog
-	e.fog_density = dens
-	e.fog_aerial_perspective = 0.4
-	e.glow_enabled = true
-	e.ssao_enabled = false
-	return e
+	return LOOK.make_env(LOOK.KIND_YARD, fog, dens)
 
 
 static func build_hangar_props(parent: Node3D, tier: int = 1) -> void:
@@ -100,6 +85,8 @@ static func build_raid_cover(parent: Node3D) -> void:
 	add_box(parent, Vector3(28, 1.0, -6), Vector3(3.0, 2.0, 3.0), rust)
 	add_box(parent, Vector3(18, 0.5, 8), Vector3(4.0, 1.0, 1.2), crate)
 	add_box(parent, Vector3(30, 1.4, 8), Vector3(1.2, 2.8, 10.0), concrete)
+	add_box(parent, Vector3(-10, 0.12, 0), Vector3(72, 0.1, 0.45), Color(0.2, 0.2, 0.22))
+	add_box(parent, Vector3(-10, 0.12, 6.5), Vector3(72, 0.1, 0.45), Color(0.2, 0.2, 0.22))
 	add_box(parent, Vector3(-32, 6.0, -20), Vector3(2.4, 12.0, 2.4), Color(0.22, 0.2, 0.18))
 	add_box(parent, Vector3(8, 9.0, 22), Vector3(3.0, 18.0, 3.0), Color(0.2, 0.18, 0.16))
 	add_collider(parent, Vector3(0, 8, -45), Vector3(110, 16, 1.2))
@@ -116,6 +103,7 @@ static func build_pipeline(parent: Node3D) -> void:
 	add_box(parent, Vector3(-20, 4, 0), Vector3(4, 8, 4), rust)
 	add_box(parent, Vector3(20, 4, 0), Vector3(4, 8, 4), rust)
 	add_box(parent, Vector3(0, 4, 14), Vector3(12, 8, 2), Color(0.25, 0.25, 0.26))
+	add_box(parent, Vector3(0, 0.55, 11.2), Vector3(3.2, 1.1, 3.2), Color(0.18, 0.2, 0.16), 0.5)
 	add_box(parent, Vector3(-8, 1, -12), Vector3(6, 2, 3), rust)
 	add_box(parent, Vector3(14, 1.2, -16), Vector3(3, 2.4, 8), steel)
 	add_collider(parent, Vector3(0, 10, -32), Vector3(90, 20, 1))
