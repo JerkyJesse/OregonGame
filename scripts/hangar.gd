@@ -14,7 +14,7 @@ func _ready() -> void:
 	RunState.in_raid = false
 	Hud.enter_gameplay()
 	Hud.reset_for_scene()
-	Hud.set_objective("HANGAR TIER %d  — bolt parts [E] on frames. Deploy at the console. Range door. Vendor." % RunState.hangar_tier)
+	Hud.set_objective(WorldLore.hangar_objective(RunState.hangar_tier))
 	Hud.refresh_carry()
 	_lights()
 	if has_node("WorldEnvironment"):

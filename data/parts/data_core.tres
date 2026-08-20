@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_part")
 id = "data_core"
-display_name = "Encrypted Data Core"
+display_name = "Choir Command Shard"
 slot = "utility"
 condition = 1.0
 rarity = "relic"

@@ -16,8 +16,8 @@ func _ready() -> void:
 
 func get_interact_label() -> String:
 	if taken:
-		return "Core socket empty"
-	return "Hack data core  [E] hold  — you are exposed"
+		return WorldLore.data_core_label(true)
+	return WorldLore.data_core_label(false)
 
 
 func interact(actor: Node) -> void:

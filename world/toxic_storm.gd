@@ -54,7 +54,7 @@ func _process(delta: float) -> void:
 				elif n.is_in_group("machine"):
 					n.call("take_damage", 8.0 * delta)
 				if _warn <= 0.0:
-					Hud.show_banner("TOXIC STORM — get inside the green ring")
+					Hud.show_banner(WorldLore.storm_banner())
 					_warn = 2.4
 
 
