@@ -804,7 +804,7 @@ func open_vendor() -> void:
 	_crosshair.visible = false
 	if _vendor:
 		_vendor.queue_free()
-	_vendor = _panel("VENDOR")
+	_vendor = _panel(WorldLore.vendor_title())
 	add_child(_vendor)
 	var box: VBoxContainer = _vendor.get_node("M/Root/S/V")
 	_add_label(box, WorldLore.vendor_blurb())
