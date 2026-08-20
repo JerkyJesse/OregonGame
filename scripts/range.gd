@@ -49,14 +49,22 @@ func _dummy_targets() -> void:
 func _spawn_dummy_mech() -> void:
 	var dummy: Node3D = load("res://actors/medium_mech.tscn").instantiate()
 	dummy.name = "RangeDummy"
-	dummy.position = Vector3(0, 0, -20)
+	dummy.position = Vector3(0, 0, -12)
 	add_child(dummy)
 	dummy.set("hangar_preview", false)
 	dummy.call("seed_wreck_parts", ["missile_pod", "pulse_cannon", "vulcan_chest", "knee_vulcan"])
 	dummy.set("disabled", false)
 	dummy.set("ai_controlled", false)
 	dummy.set("alive", true)
-	dummy.set("hull", dummy.get("hull_max"))
+	dummy.set("hull_max", 720.0)
+	dummy.set("_base_hull", 720.0)
+	dummy.set("hull", 720.0)
+	var hp: Variant = dummy.get("section_hp")
+	if hp is Dictionary:
+		(hp as Dictionary)["arm_r"] = 32.0
+		(hp as Dictionary)["arm_l"] = 32.0
+		(hp as Dictionary)["chest"] = 55.0
+		dummy.set("section_hp", hp)
 	if dummy.has_method("apply_loadout"):
 		dummy.call("apply_loadout")
 	RD.watch_machine(self, dummy)

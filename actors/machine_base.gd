@@ -744,8 +744,7 @@ func _try_fire() -> void:
 	if _fire_cd > 0.0:
 		return
 	if heat >= 96.0:
-		Hud.show_banner("Heat lock.")
-		_fire_cd = 0.35
+		_fire_cd = 0.28
 		return
 	var weapon := RunState.best_weapon(scale_id, equipped)
 	if weapon.is_empty() or float(section_hp.get(str(weapon.get("slot", "chest")), 1.0)) <= 0.0:
@@ -896,6 +895,11 @@ func take_section_damage(amount: float, point: Vector3, slot_hint: String = "") 
 	if not section_hp.has(slot):
 		slot = "chest"
 	var before := float(section_hp.get(slot, 100.0))
+	if before <= 0.0:
+		take_damage(amount * 0.35)
+		if alive:
+			_overflow_damage(slot, amount, point)
+		return
 	section_hp[slot] = before - amount * 0.65
 	take_damage(amount * 0.55)
 	if not alive:
@@ -907,8 +911,46 @@ func take_section_damage(amount: float, point: Vector3, slot_hint: String = "") 
 		Hud.set_sections(section_readout())
 	else:
 		Hud.set_sections(WorldLore.hit_section_line(scale_id, slot, hp_now))
-	if hp_now <= 0.0 and before > 0.0:
+	if hp_now <= 0.0:
 		_break_section(slot)
+		var spill := -hp_now
+		if spill > 2.0:
+			_overflow_damage(slot, spill / 0.65, point)
+
+
+func _loot_drop_pos(slot: String) -> Vector3:
+	var outward := Vector3.ZERO
+	var cam := get_viewport().get_camera_3d() if get_viewport() else null
+	if cam:
+		outward = cam.global_position - global_position
+		outward.y = 0.0
+	if outward.length() < 0.4:
+		outward = slot_world_pos(slot) - global_position
+		outward.y = 0.0
+	if outward.length() < 0.4:
+		outward = global_transform.basis.z
+	var reach := 5.4 if scale_id == "heavy" else 4.8
+	return global_position + outward.normalized() * reach + Vector3(0, 1.15, 0)
+
+
+func _overflow_damage(from_slot: String, amount: float, point: Vector3) -> void:
+	var order := {
+		"chest": ["arm_r", "arm_l", "sensors", "legs"],
+		"arm_r": ["chest", "arm_l", "legs"],
+		"arm_l": ["chest", "arm_r", "legs"],
+		"legs": ["chest", "arm_r", "arm_l"],
+		"sensors": ["chest", "arm_r", "arm_l"],
+		"reactor": ["chest", "utility"],
+		"utility": ["chest", "legs"],
+	}
+	var nexts: Variant = order.get(from_slot, ["chest", "arm_r", "arm_l"])
+	if not (nexts is Array):
+		return
+	for n in nexts:
+		var slot := str(n)
+		if float(section_hp.get(slot, 0.0)) > 0.0:
+			take_section_damage(amount * 0.9, point, slot)
+			return
 
 
 func _break_section(slot: String, announce: bool = true) -> void:
@@ -916,7 +958,7 @@ func _break_section(slot: String, announce: bool = true) -> void:
 		return
 	_broken[slot] = true
 	section_hp[slot] = 0.0
-	var pop_at := slot_world_pos(slot)
+	var pop_at := _loot_drop_pos(slot)
 	_spawn_limb_debris(slot)
 	if _crit_fx.has(slot) and is_instance_valid(_crit_fx[slot]):
 		(_crit_fx[slot] as Node).queue_free()
@@ -932,8 +974,7 @@ func _break_section(slot: String, announce: bool = true) -> void:
 		if announce:
 			Hud.show_banner(WorldLore.torn_off_banner(str(drop.get("display_name", slot)), slot, bool(drop.get("is_weapon", false))))
 			Fx.float_text(pop_at + Vector3(0, 1.1, 0), "%s TORN" % str(drop.get("display_name", slot)).to_upper(), Color(1.0, 0.62, 0.2))
-	elif announce:
-		Hud.show_banner("%s wrecked." % WorldLore.section_abbrev(slot))
+	else:
 		Fx.float_text(pop_at + Vector3(0, 0.8, 0), "%s GONE" % WorldLore.section_abbrev(slot), Color(0.95, 0.4, 0.15))
 	Fx.burst(pop_at, Color(1.0, 0.45, 0.12))
 	Fx.play("stomp" if scale_id == "heavy" else "melee")
