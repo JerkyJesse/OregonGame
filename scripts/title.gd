@@ -139,6 +139,8 @@ func _show_crawl() -> void:
 
 
 func _on_crawl_gui(event: InputEvent) -> void:
+	if _leaving:
+		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
@@ -146,11 +148,13 @@ func _on_crawl_gui(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _crawl_layer == null:
+	if _leaving or _crawl_layer == null:
 		return
 	if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
+		var vp := get_viewport()
+		if vp:
+			vp.set_input_as_handled()
 		_finish_crawl()
-		get_viewport().set_input_as_handled()
 
 
 func _finish_crawl() -> void:
