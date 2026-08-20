@@ -126,7 +126,7 @@ func _process(delta: float) -> void:
 	else:
 		_timer.visible = false
 	if _net:
-		_net.text = "%s   %s   TIER %d   %d cr" % [NetSession.status_text(), RunState.faction.to_upper(), RunState.hangar_tier, RunState.credits]
+		_net.text = "%s   %s   TIER %d   %d cr" % [NetSession.status_text(), WorldLore.faction_name(RunState.faction).to_upper(), RunState.hangar_tier, RunState.credits]
 
 
 func reset_for_scene() -> void:
@@ -228,7 +228,7 @@ func open_machine_bay(mech: Node) -> void:
 		_bay.queue_free()
 	_bay = _panel("STRIP / BOLT  %s" % str(mech.get("scale_id")).to_upper())
 	add_child(_bay)
-	var box: VBoxContainer = _bay.get_node("M/V")
+	var box: VBoxContainer = _bay.get_node("M/S/V")
 	_add_label(box, "Look-free wreck workbench. Strip parts into carry, then bolt them onto another frame.")
 	var pack: Variant = mech.get("equipped")
 	var equipped: Dictionary = pack if pack is Dictionary else {}
@@ -254,7 +254,7 @@ func open_machine_bay(mech: Node) -> void:
 		box.add_child(row)
 	if not bool(mech.get("core_taken")):
 		var hack := Button.new()
-		hack.text = "Hold-hack data core (exposed)"
+		hack.text = WorldLore.bay_hack_label()
 		hack.button_down.connect(_bay_hack_start)
 		box.add_child(hack)
 	if str(mech.get("scale_id")) == "heavy":
@@ -503,7 +503,7 @@ func open_repair() -> void:
 		_repair.queue_free()
 	_repair = _panel("REFURBISH")
 	add_child(_repair)
-	var box: VBoxContainer = _repair.get_node("M/V")
+	var box: VBoxContainer = _repair.get_node("M/S/V")
 	_repair_uids.clear()
 	_add_label(box, "Pick a damaged part. Cost scales with condition.")
 	var list := ItemList.new()
@@ -616,7 +616,13 @@ func open_deploy() -> void:
 		_deploy.queue_free()
 	_deploy = _panel("DEPLOY")
 	add_child(_deploy)
-	var box: VBoxContainer = _deploy.get_node("M/V")
+	var box: VBoxContainer = _deploy.get_node("M/S/V")
+	var brief := Label.new()
+	brief.name = "Briefing"
+	brief.autowrap_mode = TextServer.AUTOWRAP_WORD
+	brief.custom_minimum_size = Vector2(500, 0)
+	brief.add_theme_color_override("font_color", Color(0.78, 0.72, 0.62))
+	box.add_child(brief)
 	_add_label(box, "Scale")
 	for s in ["scavenger", "light", "armor", "medium", "heavy", "vehicle"]:
 		var b := Button.new()
@@ -628,18 +634,18 @@ func open_deploy() -> void:
 	_add_label(box, "Raid mode")
 	for m in ["combat", "scav_wave", "late_drop"]:
 		var b := Button.new()
-		b.text = m.replace("_", " ").capitalize()
+		b.text = WorldLore.mode_title(m)
 		b.pressed.connect(_pick_mode.bind(m))
 		box.add_child(b)
-	_add_label(box, "Map / faction")
+	_add_label(box, "Yard / faction")
 	for m in ["ash_yard", "pipeline"]:
 		var b := Button.new()
-		b.text = m.replace("_line", " ").replace("_", " ").capitalize()
+		b.text = WorldLore.map_title(m)
 		b.pressed.connect(_pick_map.bind(m))
 		box.add_child(b)
 	for f in RunState.FACTIONS:
 		var b := Button.new()
-		b.text = "Faction: " + f
+		b.text = WorldLore.faction_name(f)
 		b.pressed.connect(_pick_faction.bind(f))
 		box.add_child(b)
 	var host := Button.new()
@@ -658,27 +664,40 @@ func open_deploy() -> void:
 	close.text = "Close"
 	close.pressed.connect(close_all_ui)
 	box.add_child(close)
+	_refresh_deploy_briefing()
+
+
+func _refresh_deploy_briefing() -> void:
+	if _deploy == null or not is_instance_valid(_deploy):
+		return
+	var brief: Label = _deploy.get_node_or_null("M/S/V/Briefing") as Label
+	if brief:
+		brief.text = WorldLore.deploy_briefing(RunState.raid_map, RunState.raid_mode, RunState.faction)
 
 
 func _pick_scale(s: String) -> void:
 	RunState.deploy_scale = s
 	show_banner("Deploy as %s" % s)
+	_refresh_deploy_briefing()
 
 
 func _pick_mode(m: String) -> void:
 	RunState.raid_mode = m
-	show_banner("Mode %s" % m)
+	show_banner("Mode %s" % WorldLore.mode_title(m))
+	_refresh_deploy_briefing()
 
 
 func _pick_map(m: String) -> void:
 	RunState.raid_map = m
-	show_banner("Map %s" % m)
+	show_banner("Yard %s" % WorldLore.map_title(m))
+	_refresh_deploy_briefing()
 
 
 func _pick_faction(f: String) -> void:
 	RunState.faction = f
-	show_banner("Faction %s" % f)
+	show_banner("Faction %s" % WorldLore.faction_name(f))
 	RunState.save_state()
+	_refresh_deploy_briefing()
 
 
 func _host() -> void:
@@ -718,8 +737,8 @@ func open_vendor() -> void:
 		_vendor.queue_free()
 	_vendor = _panel("VENDOR")
 	add_child(_vendor)
-	var box: VBoxContainer = _vendor.get_node("M/V")
-	_add_label(box, "Cosmetics and junk only. No pay-to-win guns.")
+	var box: VBoxContainer = _vendor.get_node("M/S/V")
+	_add_label(box, WorldLore.vendor_blurb())
 	var offers := [
 		["armor_plate", 25],
 		["myomer_strand", 30],
@@ -760,10 +779,10 @@ func _buy_paint() -> void:
 func _panel(title: String) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.set_anchors_preset(Control.PRESET_CENTER)
-	p.offset_left = -280
-	p.offset_top = -300
-	p.offset_right = 280
-	p.offset_bottom = 300
+	p.offset_left = -300
+	p.offset_top = -330
+	p.offset_right = 300
+	p.offset_bottom = 330
 	var m := MarginContainer.new()
 	m.name = "M"
 	m.add_theme_constant_override("margin_left", 16)
@@ -771,9 +790,16 @@ func _panel(title: String) -> PanelContainer:
 	m.add_theme_constant_override("margin_top", 16)
 	m.add_theme_constant_override("margin_bottom", 16)
 	p.add_child(m)
+	var scroll := ScrollContainer.new()
+	scroll.name = "S"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(520, 580)
+	m.add_child(scroll)
 	var v := VBoxContainer.new()
 	v.name = "V"
-	m.add_child(v)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.custom_minimum_size = Vector2(520, 0)
+	scroll.add_child(v)
 	var t := Label.new()
 	t.text = title
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -1,5 +1,8 @@
 extends Control
 
+var _crawl_layer: Control
+var _leaving := false
+
 
 func _enter_tree() -> void:
 	Hud.freeze_for_title()
@@ -31,14 +34,14 @@ func _build() -> void:
 	v.mouse_filter = Control.MOUSE_FILTER_STOP
 	center.add_child(v)
 	var title := Label.new()
-	title.text = "GET THE MECH OUTTA DODGE"
+	title.text = WorldLore.TITLE
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 34)
 	title.add_theme_color_override("font_color", Color(0.95, 0.62, 0.22))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(title)
 	var sub := Label.new()
-	sub.text = "First-person extraction. Strip the giants. Bolt their guns onto yours. Get out."
+	sub.text = WorldLore.TAGLINE
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_color_override("font_color", Color(0.78, 0.72, 0.62))
@@ -69,6 +72,8 @@ func _add_button(box: VBoxContainer, text: String, cb: Callable) -> void:
 func _focus_menu() -> void:
 	Hud.freeze_for_title()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if _crawl_layer != null:
+		return
 	for child in get_children():
 		if child is CenterContainer:
 			for box in child.get_children():
@@ -80,6 +85,78 @@ func _focus_menu() -> void:
 
 
 func _new_game() -> void:
+	_show_crawl()
+
+
+func _show_crawl() -> void:
+	if _crawl_layer != null:
+		return
+	_crawl_layer = Control.new()
+	_crawl_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_crawl_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	_crawl_layer.gui_input.connect(_on_crawl_gui)
+	add_child(_crawl_layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.04, 0.03, 0.97)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_crawl_layer.add_child(bg)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_crawl_layer.add_child(center)
+	var v := VBoxContainer.new()
+	v.custom_minimum_size = Vector2(720, 0)
+	v.add_theme_constant_override("separation", 16)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(v)
+	var head := Label.new()
+	head.text = WorldLore.TITLE
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.add_theme_font_size_override("font_size", 28)
+	head.add_theme_color_override("font_color", Color(0.95, 0.62, 0.22))
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(head)
+	var body := Label.new()
+	body.text = WorldLore.crawl_text()
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.add_theme_color_override("font_color", Color(0.82, 0.76, 0.66))
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(body)
+	var hint := Label.new()
+	hint.text = WorldLore.CRAWL_HINT
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_color_override("font_color", Color(0.62, 0.56, 0.48))
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(hint)
+	var go := Button.new()
+	go.text = "CONTINUE"
+	go.custom_minimum_size = Vector2(0, 36)
+	go.pressed.connect(_finish_crawl)
+	v.add_child(go)
+	go.grab_focus()
+
+
+func _on_crawl_gui(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+			_finish_crawl()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _crawl_layer == null:
+		return
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_cancel"):
+		_finish_crawl()
+		get_viewport().set_input_as_handled()
+
+
+func _finish_crawl() -> void:
+	if _leaving:
+		return
+	_leaving = true
 	RunState.new_game()
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
 

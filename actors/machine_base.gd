@@ -332,7 +332,7 @@ func hold_hack_core(scav: Node, delta: float) -> bool:
 	_hack += delta * 0.28
 	Fx.play("hack")
 	Hud.set_extract(_hack)
-	Hud.set_prompt("Decrypting core… don't get shot  %.0f%%" % (_hack * 100.0))
+	Hud.set_prompt(WorldLore.decrypting_prompt(_hack * 100.0))
 	get_tree().call_group("heavy_mech", "alert_to", global_position)
 	if _hack >= 1.0:
 		_hack = 0.0
@@ -342,10 +342,10 @@ func hold_hack_core(scav: Node, delta: float) -> bool:
 		if scav is Scavenger:
 			if RunState.add_carry(part, true):
 				Hud.refresh_carry()
-				Hud.show_banner("Data core in secure slot.")
+				Hud.show_banner(WorldLore.core_secured_banner())
 			elif RunState.add_carry(part):
 				Hud.refresh_carry()
-				Hud.show_banner("Data core — extract it or die trying.")
+				Hud.show_banner(WorldLore.core_carry_banner())
 		return true
 	return false
 

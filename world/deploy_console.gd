@@ -8,7 +8,7 @@ func _ready() -> void:
 
 
 func get_interact_label() -> String:
-	return "Deploy  [E] — choose scale, map, raid mode"
+	return WorldLore.deploy_console_label()
 
 
 func interact(_actor: Node) -> void:

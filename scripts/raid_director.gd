@@ -16,14 +16,7 @@ static func begin(world: Node3D, map_id: String) -> void:
 	RunState.begin_raid()
 	Hud.enter_gameplay()
 	Hud.reset_for_scene()
-	var obj := "ASH YARD 7 — loot the wreck, strip the dead medium, bolt a gun, extract."
-	if map_id == "pipeline":
-		obj = "PIPELINE CUT — catwalks above, scavs below. Strip, bolt, extract."
-	if RunState.raid_mode == "scav_wave":
-		obj = "SCAV WAVE — wrecks everywhere. Rival scavs. Storm closing."
-	elif RunState.raid_mode == "late_drop":
-		obj = "LATE DROP — battlefield already hot. Grab and go."
-	Hud.set_objective(obj)
+	Hud.set_objective(WorldLore.raid_objective(map_id, RunState.raid_mode))
 	Hud.set_health(RunState.health)
 	Hud.refresh_carry()
 	if world.has_node("WorldEnvironment"):
@@ -46,7 +39,7 @@ static func begin(world: Node3D, map_id: String) -> void:
 	if NetSession.is_online() and NetSession.is_host():
 		world.multiplayer.peer_connected.connect(func(id: int) -> void:
 			_spawn_proxy(world, id)
-			Hud.show_banner("Scavenger dropped in (peer %d)." % id)
+			Hud.show_banner(WorldLore.peer_drop_banner(id))
 		)
 
 
@@ -78,13 +71,13 @@ static func update_ash_objective(world: Node3D) -> void:
 		if bool(part.get("is_weapon", false)):
 			carrying_gun = true
 	if bolted:
-		Hud.set_objective("GUN BOLTED — board the light [E]/[F] or run to a green extract and hold [E].")
+		Hud.set_objective(WorldLore.ash_progress_objective("bolted"))
 	elif carrying_gun:
-		Hud.set_objective("Carry a gun — look at the parked LIGHT and bolt it [E].")
+		Hud.set_objective(WorldLore.ash_progress_objective("carrying_gun"))
 	elif RunState.raid_carry.size() > 0:
-		Hud.set_objective("Loot in bag — strip a weapon off the dead MEDIUM, or extract now.")
+		Hud.set_objective(WorldLore.ash_progress_objective("loot"))
 	else:
-		Hud.set_objective("ASH YARD 7 — loot the burnt wreck, strip the dead medium, bolt a gun, extract.")
+		Hud.set_objective(WorldLore.raid_objective("ash_yard", RunState.raid_mode))
 
 
 static func _setup_existing(world: Node3D) -> void:
@@ -210,7 +203,7 @@ static func _spawn_events(world: Node3D, map_id: String) -> void:
 		world.get_tree().create_timer(90.0).timeout.connect(func() -> void:
 			if not is_instance_valid(world):
 				return
-			Hud.show_banner("Incoming heavy reinforcement.")
+			Hud.show_banner(WorldLore.incoming_heavy_banner())
 			Fx.play("alarm")
 			var extra: Node3D = HEAVY_SCENE.instantiate()
 			extra.position = Vector3(-30, 0, -24)
@@ -314,7 +307,7 @@ static func _on_machine_died(world: Node3D, pos: Vector3) -> void:
 	wreck.set("extra_ids", PackedStringArray(["heavy_plating", "missile_pod"]))
 	world.add_child(wreck)
 	wreck.global_position = Vector3(pos.x, 0.0, pos.z)
-	Hud.show_banner("Machine down — strip it.")
+	Hud.show_banner(WorldLore.machine_down_banner())
 	RunState.heavy_engaged = true
 
 

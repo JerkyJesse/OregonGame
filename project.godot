@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="GetTheMechOuttaDodge"
-config/description="First-person mech extraction shooter. Scavenge, bolt, extract."
+config/description="After the Tarkovic Wars. Last humans raid occupation yards. Scavenge, bolt, extract."
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"

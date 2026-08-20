@@ -62,7 +62,7 @@ func _process(delta: float) -> void:
 	if _inside.is_empty() or Hud.ui_busy:
 		return
 	if extract_type == "payload" and not _has_payload():
-		Hud.set_prompt("PAYLOAD LZ — need a data core")
+		Hud.set_prompt(WorldLore.payload_need_prompt())
 		return
 	if extract_type == "vehicle" and not _has_hauler():
 		Hud.set_prompt("VEHICLE LZ — board the hauler")
@@ -96,7 +96,7 @@ func _process(delta: float) -> void:
 @rpc("any_peer", "reliable")
 func _rpc_extract() -> void:
 	if NetSession.is_host():
-		Hud.show_banner("A scavenger extracted.")
+		Hud.show_banner(WorldLore.extracted_banner())
 
 
 func _has_payload() -> bool:

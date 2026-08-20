@@ -9,7 +9,7 @@ func _ready() -> void:
 
 
 func get_interact_label() -> String:
-	return "Yard vendor  [E]  junk parts + paints  (no combat gear P2W)"
+	return WorldLore.vendor_label()
 
 
 func interact(_actor: Node) -> void:
