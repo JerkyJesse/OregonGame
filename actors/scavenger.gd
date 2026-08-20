@@ -170,6 +170,7 @@ func _update_interact(delta: float) -> void:
 	interact_focus = target
 	if target:
 		Hud.set_prompt(str(target.call("get_interact_label")))
+		_look_sections(target)
 		if Input.is_action_pressed("hotwire") and target.has_method("hold_hotwire"):
 			target.call("hold_hotwire", self, delta)
 		elif Input.is_action_pressed("interact") and target is ClimbPoint:
@@ -188,6 +189,7 @@ func _update_interact(delta: float) -> void:
 			if RunState.has_filter_pack():
 				hint += "   [R] swap filter"
 			Hud.set_prompt(hint)
+		Hud.set_sections("")
 		_decay_nearby_channels()
 	if Input.is_action_just_pressed("board"):
 		_try_board_nearby()
@@ -222,6 +224,23 @@ func _decay_nearby_channels() -> void:
 	for mech in get_tree().get_nodes_in_group("machine"):
 		if mech.has_method("reset_channels") and global_position.distance_to(mech.global_position) < 12.0:
 			mech.call("reset_channels")
+
+
+func _look_sections(target: Node) -> void:
+	var mech := _machine_from(target)
+	if mech and mech.has_method("section_readout"):
+		Hud.set_sections(str(mech.call("section_readout")))
+	else:
+		Hud.set_sections("")
+
+
+func _machine_from(node: Node) -> Node:
+	var cur := node
+	while cur:
+		if cur.is_in_group("machine"):
+			return cur
+		cur = cur.get_parent()
+	return null
 
 
 func _interactable() -> Node:
@@ -313,15 +332,42 @@ func _scav_hitscan(from: Vector3, to: Vector3) -> void:
 	query.collision_mask = 7
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	var end := to
+	var slot_hint := ""
+	var hint_q := PhysicsRayQueryParameters3D.create(from, to)
+	hint_q.exclude = [get_rid()]
+	hint_q.collision_mask = 8
+	hint_q.collide_with_areas = true
+	hint_q.collide_with_bodies = false
+	var hint_hit := get_world_3d().direct_space_state.intersect_ray(hint_q)
+	if hint_hit and hint_hit.collider is SlotHotspot:
+		slot_hint = str((hint_hit.collider as SlotHotspot).slot)
 	if hit:
 		end = hit.position
 		var col: Object = hit.collider
 		if col is Node:
 			var n := col as Node
+			if n is SlotHotspot and slot_hint == "":
+				slot_hint = str((n as SlotHotspot).slot)
 			if n.has_method("take_section_damage"):
-				n.call("take_section_damage", 8.0, hit.position)
+				if slot_hint != "":
+					n.call("take_section_damage", 8.0, hit.position, slot_hint)
+				else:
+					n.call("take_section_damage", 8.0, hit.position)
 			elif n.has_method("take_damage"):
 				n.call("take_damage", 8.0)
+			else:
+				var parent := n.get_parent()
+				while parent:
+					if parent.has_method("take_section_damage"):
+						if slot_hint != "":
+							parent.call("take_section_damage", 8.0, hit.position, slot_hint)
+						else:
+							parent.call("take_section_damage", 8.0, hit.position)
+						break
+					if parent.has_method("take_damage"):
+						parent.call("take_damage", 8.0)
+						break
+					parent = parent.get_parent()
 	Fx.spawn_tracer(from + (-_camera.global_transform.basis.z) * 0.8, end, Color(0.9, 0.85, 0.5))
 	if hit:
 		Fx.spark(end, Color(1.0, 0.75, 0.35))

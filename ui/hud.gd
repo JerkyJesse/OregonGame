@@ -38,6 +38,7 @@ var _net: Label
 var _sensors: Label
 var _lungs: Label
 var _lungs_bar: ProgressBar
+var _sections: Label
 var _deploy: PanelContainer
 var _vendor: PanelContainer
 var _bay: PanelContainer
@@ -58,6 +59,8 @@ func _ready() -> void:
 	LOOK.outline_label(_timer, Color(0.95, 0.7, 0.35))
 	LOOK.outline_label(_net, Color(0.65, 0.75, 0.8))
 	LOOK.outline_label(_sensors, Color(0.85, 0.9, 0.45))
+	if _sections:
+		LOOK.outline_label(_sections, Color(0.95, 0.62, 0.28))
 	if _extract_bar:
 		_extract_bar.add_theme_stylebox_override("background", LOOK.bar_bg())
 		_extract_bar.add_theme_stylebox_override("fill", LOOK.bar_fill(Color(0.25, 0.85, 0.38)))
@@ -124,6 +127,15 @@ func _build_extras() -> void:
 	_sensors.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_sensors.size = Vector2(900, 40)
 	add_child(_sensors)
+	_sections = Label.new()
+	_sections.position = Vector2(24, 196)
+	_sections.add_theme_font_size_override("font_size", 14)
+	_sections.add_theme_color_override("font_color", Color(0.95, 0.62, 0.28))
+	_sections.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sections.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_sections.size = Vector2(920, 28)
+	_sections.visible = false
+	add_child(_sections)
 	_lungs = Label.new()
 	_lungs.position = Vector2(280, 50)
 	_lungs.add_theme_font_size_override("font_size", 18)
@@ -176,6 +188,7 @@ func reset_for_scene() -> void:
 	set_extract(-1.0)
 	set_heat(-1.0)
 	set_sensors("")
+	set_sections("")
 	set_lungs(-1.0)
 	refresh_carry()
 	set_health(RunState.health)
@@ -197,6 +210,13 @@ func set_health(value: float) -> void:
 func set_sensors(text: String) -> void:
 	if _sensors:
 		_sensors.text = text
+
+
+func set_sections(text: String) -> void:
+	if _sections == null:
+		return
+	_sections.text = text
+	_sections.visible = text != ""
 
 
 func set_lungs(value: float, ring: float = -1.0, dist: float = -1.0) -> void:

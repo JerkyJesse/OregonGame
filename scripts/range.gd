@@ -43,6 +43,38 @@ func _dummy_targets() -> void:
 		col.shape = sh
 		b.add_child(col)
 		add_child(b)
+	_spawn_dummy_mech()
+
+
+func _spawn_dummy_mech() -> void:
+	var dummy: Node3D = load("res://actors/medium_mech.tscn").instantiate()
+	dummy.name = "RangeDummy"
+	dummy.position = Vector3(0, 0, -12)
+	add_child(dummy)
+	dummy.set("hangar_preview", false)
+	dummy.call("seed_wreck_parts", ["missile_pod", "pulse_cannon", "vulcan_chest", "knee_vulcan"])
+	dummy.set("disabled", false)
+	dummy.set("ai_controlled", false)
+	dummy.set("alive", true)
+	dummy.set("hull_max", 720.0)
+	dummy.set("_base_hull", 720.0)
+	dummy.set("hull", 720.0)
+	var hp: Variant = dummy.get("section_hp")
+	if hp is Dictionary:
+		(hp as Dictionary)["arm_r"] = 32.0
+		(hp as Dictionary)["arm_l"] = 32.0
+		(hp as Dictionary)["chest"] = 55.0
+		dummy.set("section_hp", hp)
+	if dummy.has_method("apply_loadout"):
+		dummy.call("apply_loadout")
+	RD.watch_machine(self, dummy)
+	var lab := Label3D.new()
+	lab.text = WorldLore.range_dummy_plate()
+	lab.position = Vector3(0, 6.4, 0)
+	lab.font_size = 42
+	lab.modulate = Color(0.95, 0.55, 0.2)
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	dummy.add_child(lab)
 
 
 func spawn_loot(part: Dictionary, pos: Vector3) -> void:

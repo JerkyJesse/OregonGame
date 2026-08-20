@@ -156,6 +156,47 @@ func burst(pos: Vector3, color: Color = Color(0.35, 1.0, 0.45)) -> void:
 	)
 
 
+func falling_chunk(src: MeshInstance3D) -> void:
+	if src == null or get_tree() == null or get_tree().current_scene == null:
+		return
+	var mi := src.duplicate() as MeshInstance3D
+	if mi == null:
+		return
+	var scene := get_tree().current_scene
+	var xform := src.global_transform
+	scene.add_child(mi)
+	mi.global_transform = xform
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var drift := Vector3(randf_range(-3.2, 3.2), randf_range(1.2, 3.6), randf_range(-3.2, 3.2))
+	var end := xform.origin + drift + Vector3(0, -7.0, 0)
+	var tw := scene.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "global_position", end, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(mi, "rotation", mi.rotation + Vector3(randf_range(-2.2, 2.2), randf_range(-1.8, 1.8), randf_range(-2.2, 2.2)), 0.9)
+	tw.chain().tween_callback(mi.queue_free)
+
+
+func float_text(pos: Vector3, text: String, color: Color = Color(1.0, 0.7, 0.25)) -> void:
+	if get_tree() == null or get_tree().current_scene == null or text == "":
+		return
+	var lab := Label3D.new()
+	lab.text = text
+	lab.font_size = 40
+	lab.modulate = color
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lab.outline_size = 8
+	lab.outline_modulate = Color(0, 0, 0, 0.88)
+	lab.no_depth_test = true
+	var scene := get_tree().current_scene
+	scene.add_child(lab)
+	lab.global_position = pos + Vector3(0, 0.55, 0)
+	var tw := scene.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(lab, "global_position", lab.global_position + Vector3(0, 1.7, 0), 0.72)
+	tw.tween_property(lab, "modulate:a", 0.0, 0.72)
+	tw.chain().tween_callback(lab.queue_free)
+
+
 func _flash(scene: Node, pos: Vector3, color: Color, radius: float, life: float) -> void:
 	var mi := MeshInstance3D.new()
 	var sp := SphereMesh.new()

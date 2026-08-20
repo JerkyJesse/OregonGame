@@ -142,7 +142,7 @@ static func host_extracted_banner() -> String:
 
 
 static func range_objective() -> String:
-	return "TEST RANGE — cockpit live fire. [F] dismount. Walk into the orange RETURN volume behind you."
+	return "TEST RANGE — cockpit live fire. Dummy medium downrange: shoot a limb off, pick the gun. [F] dismount. Orange RETURN behind you."
 
 
 static func hangar_objective(tier: int) -> String:
@@ -205,7 +205,45 @@ static func incoming_heavy_banner() -> String:
 
 
 static func machine_down_banner() -> String:
-	return "Occupation walker down — strip the coat."
+	return "Occupation walker down — strip the coat. Parts on the dirt glow."
+
+
+static func section_abbrev(slot: String) -> String:
+	match slot:
+		"arm_l":
+			return "ARM L"
+		"arm_r":
+			return "ARM R"
+		"legs":
+			return "LEGS"
+		"reactor":
+			return "REACTOR"
+		"sensors":
+			return "SENSORS"
+		"utility":
+			return "UTILITY"
+		_:
+			return "CHEST"
+
+
+static func torn_off_banner(part_name: String, slot: String, is_weapon: bool = false) -> String:
+	if is_weapon:
+		return "%s torn off the %s — gun's on the dirt. Bolt it or extract." % [part_name, section_abbrev(slot)]
+	return "%s torn off the %s — on the dirt. Pick it up." % [part_name, section_abbrev(slot)]
+
+
+static func torn_drop_label(part_name: String) -> String:
+	return "PICK UP %s — torn off  [E]" % part_name
+
+
+static func hit_section_line(scale: String, slot: String, hp: float) -> String:
+	if hp <= 0.0:
+		return "%s  HIT %s  GONE" % [scale.to_upper(), section_abbrev(slot)]
+	return "%s  HIT %s  %.0f" % [scale.to_upper(), section_abbrev(slot), maxf(hp, 0.0)]
+
+
+static func range_dummy_plate() -> String:
+	return "RANGE DUMMY — shoot the gun off"
 
 
 static func peer_drop_banner(peer_id: int) -> String:
