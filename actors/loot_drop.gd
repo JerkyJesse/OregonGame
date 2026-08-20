@@ -5,23 +5,50 @@ const LOOK := preload("res://world/WorldLook.gd")
 
 var part: Dictionary = {}
 var extra: Array = []
+var rival_bag: bool = false
 var _spin: float = 0.0
 
 
 func _ready() -> void:
 	add_to_group("loot")
+	if rival_bag or name.begins_with("RivalBag"):
+		rival_bag = true
+		add_to_group("rival_bag")
 	collision_layer = 9
 	collision_mask = 0
-	if has_node("Glow") and part.has("albedo"):
-		var c: Array = part.get("albedo", [1, 0.5, 0.1])
-		($Glow as MeshInstance3D).material_override = LOOK.emit_surface(Color(float(c[0]), float(c[1]), float(c[2])), 2.4)
+	_dress_glow()
+
+
+func _dress_glow() -> void:
+	var tint := Color(1.0, 0.55, 0.15)
+	var energy := 2.2
+	var light_range := 4.5
+	if rival_bag:
+		tint = Color(0.95, 0.35, 0.12)
+		energy = 3.4
+		light_range = 7.0
+		if has_node("Glow"):
+			($Glow as MeshInstance3D).scale = Vector3(1.45, 1.45, 1.45)
+		var tag := Label3D.new()
+		tag.name = "BagTag"
+		tag.text = "RIVAL BAG"
+		tag.position = Vector3(0, 1.15, 0)
+		tag.font_size = 28
+		tag.modulate = Color(1.0, 0.55, 0.25)
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.outline_size = 6
+		tag.outline_modulate = Color(0, 0, 0, 0.9)
+		add_child(tag)
+	if has_node("Glow"):
+		var c: Array = part.get("albedo", [tint.r, tint.g, tint.b]) if part.has("albedo") else [tint.r, tint.g, tint.b]
+		($Glow as MeshInstance3D).material_override = LOOK.emit_surface(Color(float(c[0]), float(c[1]), float(c[2])), 2.8 if rival_bag else 2.4)
 	var light := OmniLight3D.new()
 	light.name = "LookLight"
-	light.light_color = Color(1.0, 0.55, 0.15)
-	light.light_energy = 2.2
-	light.omni_range = 4.5
+	light.light_color = tint
+	light.light_energy = energy
+	light.omni_range = light_range
 	add_child(light)
-	LOOK.sparkle(self, Vector3.ZERO, Color(1.0, 0.6, 0.2, 0.7), 0.35)
+	LOOK.sparkle(self, Vector3.ZERO, Color(tint.r, tint.g, tint.b, 0.75), 0.45 if rival_bag else 0.35)
 
 
 func _process(delta: float) -> void:
@@ -29,12 +56,14 @@ func _process(delta: float) -> void:
 	if has_node("Glow"):
 		$Glow.position.y = sin(_spin * 2.6) * 0.12
 		$Glow.rotate_y(delta * 1.7)
+	if rival_bag and has_node("BagTag"):
+		$BagTag.position.y = 1.15 + sin(_spin * 2.0) * 0.08
 
 
 func get_interact_label() -> String:
 	if part.is_empty():
 		return ""
-	if extra.size() > 0:
+	if rival_bag or extra.size() > 0:
 		return WorldLore.rival_bag_label(str(part.get("display_name", "part")), extra.size())
 	return "Pick up %s  [E]" % part.get("display_name", "part")
 
@@ -59,7 +88,10 @@ func _host_give(peer_id: int) -> void:
 			Hud.show_banner("Carry full.")
 			return
 		Hud.refresh_carry()
-		Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
+		if rival_bag:
+			Hud.show_banner("Stole rival bag — %s" % taken.get("display_name", "part"))
+		else:
+			Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
 		_pop_next()
 		if part.is_empty():
 			rpc_taken.rpc()

@@ -118,11 +118,13 @@ static func dump_banner(what: String) -> String:
 
 
 static func rival_bag_label(top: String, more: int) -> String:
-	return "RIVAL BAG  %s + %d more  [E]" % [top, more]
+	if more > 0:
+		return "STEAL RIVAL BAG  %s + %d more  [E]" % [top, more]
+	return "STEAL RIVAL BAG  %s  [E]" % top
 
 
 static func controls_footer() -> String:
-	return "Click a button or arrows + Enter.  In-game: WASD  mouse  [E] use  [F] board/dismount  [G] hold hotwire  [Q] dump  [R] filter  LMB fire  hold [E] on green extract  Esc pause.  New Game wipes. Continue opens Tam’s bay."
+	return "Menus: click or arrows + Enter.  Raid: WASD  mouse  [E] use/climb/extract  [F] board/dismount  [G] hold hotwire  [Q] dump  [R] filter  LMB fire  Ctrl crawl  Esc pause/quit.  Steal rival bags on extracts.  New Game wipes. Continue opens Tam’s bay."
 
 
 static func host_extracted_banner() -> String:
@@ -141,22 +143,22 @@ static func hangar_objective(tier: int) -> String:
 
 static func raid_objective(map_id: String, mode: String) -> String:
 	if mode == "scav_wave":
-		return "SCAV WAVE — wrecks everywhere. Feral husks. Pale weather closing. Watch the bags."
+		return "SCAV WAVE — wrecks + feral husks. Steal rival bags on pads. Pale ring closing."
 	if mode == "late_drop":
-		return "LATE DROP — occupation fight already spent. Grab and go. Jex already started."
+		return "LATE DROP — giants already died. Grab bags, strip wrecks, extract before Jex does."
 	if map_id == "pipeline":
-		return "PIPELINE CUT — Pump House 3 still has a shard. Catwalks above, husks below. Strip, bolt, extract."
-	return "ASH YARD 7 — loot the wreck, strip the dead medium, bolt a gun, extract. Filter ticking."
+		return "PIPELINE CUT — hold [E] on Pump House 3 shard. Catwalks above, husks below. Climb heavies. Extract green/blue/west tax."
+	return "ASH YARD 7 — strip the medium, bolt a gun on the light, climb/pry the heavy, steal bags, extract. Filter ticking."
 
 
 static func ash_progress_objective(kind: String) -> String:
 	match kind:
 		"bolted":
-			return "GUN BOLTED — board the light [E]/[F] or run to a green extract and hold [E]."
+			return "GUN BOLTED — board the light [F] or hold [E] on a green extract. Blue = stealth. West = Brask tax."
 		"carrying_gun":
-			return "Carry a gun — look at the parked LIGHT and bolt it [E]."
+			return "Gun in bag — look at the parked LIGHT and bolt it [E], or extract now."
 		"loot":
-			return "Loot in bag — strip a weapon off the dead MEDIUM, or extract now."
+			return "Loot in bag — strip a weapon off the dead MEDIUM, climb the heavy for plate, or extract."
 		_:
 			return raid_objective("ash_yard", "combat")
 
@@ -190,7 +192,26 @@ static func vendor_label() -> String:
 
 
 static func vendor_blurb() -> String:
+	var stock := ""
+	if RunState.has_method("vendor_stock_note"):
+		stock = str(RunState.call("vendor_stock_note"))
+	if stock != "":
+		return "Tam “Picks” Calder. New Dodge stall. %s He will not sell occupation guns. Choir can smell a bought barrel." % stock
 	return "Tam “Picks” Calder. New Dodge stall. Junk, myomer, coolers, sealed-air cans, sensors, paints. Stock shifts after extracts. He will not sell occupation guns. Choir can smell a bought barrel."
+
+
+static func crush_warning() -> String:
+	return "HEAVY STOMP — underfoot. Sprint or crawl into cover."
+
+
+static func climb_stage_label(stage: int) -> String:
+	match stage:
+		1:
+			return "Hold [E] climb thigh — stay under the knee"
+		2:
+			return "Hold [E] pry plate — heavy will notice"
+		_:
+			return "Hold [E] climb calf — get under the stomp"
 
 
 static func data_core_label(taken: bool) -> String:
@@ -294,21 +315,21 @@ static func face_extracted(id: String, n: int) -> String:
 	var who := face_name(id)
 	if n <= 0:
 		return "%s bailed empty." % who
-	return "%s extracted with %d part%s. That bag is gone." % [who, n, "" if n == 1 else "s"]
+	return "%s hit extract and dumped a bag (%d). Steal it before they come back — or before Pale weather." % [who, n]
 
 
 static func face_extract_band(id: String) -> String:
 	match id:
 		"jex":
-			return "JEX — Grab and go. I'm already gone."
+			return "JEX — Grab and go. Bag's on the pad if you're faster."
 		"pell":
-			return "PELL — Shard is doctrine. Returning to the bunker."
+			return "PELL — Doctrine secured. Unsecured crate left at the pad."
 		"wren":
-			return "WREN — Case is full. Quill can invoice the rest."
+			return "WREN — Case filed. Spill bag on the pad — Quill can invoice the rest."
 		"ash_nine":
-			return "ASH-NINE — Kid's out. Actuator's mine."
+			return "ASH-NINE — Kid's out. Bag's still warm on the extract."
 		_:
-			return "BAND — Rival scav just made extract with a bag."
+			return "BAND — Rival scav hit extract. Stealable bag on the pad."
 
 
 static func haze_banner() -> String:

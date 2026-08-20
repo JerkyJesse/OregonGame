@@ -815,68 +815,83 @@ static func dress_pale_host(host: Node3D) -> void:
 	var root := Node3D.new()
 	root.name = "LookAlien"
 	host.add_child(root)
-	var flesh := flesh_mat(PALE, 1.35)
-	add_sphere(root, Vector3(0, 1.35, 0), 0.52, flesh, Vector3(0.78, 1.15, 0.72))
-	add_sphere(root, Vector3(0, 1.85, 0.08), 0.28, flesh_mat(Color(0.72, 0.95, 0.42), 1.8), Vector3(0.85, 0.7, 0.9))
+	var flesh := flesh_mat(PALE, 1.45)
+	# Cluster mass — not a biped. Filament colony wearing a stolen can silhouette.
+	add_sphere(root, Vector3(0, 1.15, 0), 0.62, flesh, Vector3(0.95, 1.05, 0.88))
+	add_sphere(root, Vector3(0.22, 1.55, 0.1), 0.34, flesh_mat(Color(0.68, 0.96, 0.38), 1.9), Vector3(1.1, 0.75, 0.95))
+	add_sphere(root, Vector3(-0.28, 1.42, -0.12), 0.28, flesh, Vector3(0.8, 1.0, 0.85))
+	var can := MeshInstance3D.new()
+	var can_mesh := CylinderMesh.new()
+	can_mesh.top_radius = 0.22
+	can_mesh.bottom_radius = 0.26
+	can_mesh.height = 0.55
+	can_mesh.material = paint_mat(Color(0.22, 0.24, 0.2))
+	can.mesh = can_mesh
+	can.position = Vector3(0.05, 0.95, 0.18)
+	can.rotation_degrees = Vector3(18, 0, -12)
+	root.add_child(can)
 	var slit := MeshInstance3D.new()
 	var sm := BoxMesh.new()
-	sm.size = Vector3(0.34, 0.06, 0.08)
-	sm.material = emit_surface(Color(0.85, 1.0, 0.45), 4.2)
+	sm.size = Vector3(0.42, 0.05, 0.07)
+	sm.material = emit_surface(Color(0.9, 1.0, 0.4), 5.0)
 	slit.mesh = sm
-	slit.position = Vector3(0, 1.88, 0.28)
+	slit.position = Vector3(0.1, 1.62, 0.38)
 	root.add_child(slit)
-	for i in 3:
-		var ang := TAU * float(i) / 3.0
-		var hip := Vector3(cos(ang) * 0.28, 0.95, sin(ang) * 0.28)
+	# Tendril legs — uneven count, wrong for a person.
+	for i in 5:
+		var ang := TAU * float(i) / 5.0 + 0.15
+		var reach := 0.34 + float(i % 2) * 0.12
+		var hip := Vector3(cos(ang) * 0.3, 0.85, sin(ang) * 0.3)
 		var thigh := MeshInstance3D.new()
 		var tmesh := CylinderMesh.new()
-		tmesh.top_radius = 0.07
-		tmesh.bottom_radius = 0.11
-		tmesh.height = 0.95
+		tmesh.top_radius = 0.045
+		tmesh.bottom_radius = 0.1
+		tmesh.height = 0.85 + float(i % 3) * 0.12
 		tmesh.material = flesh
 		thigh.mesh = tmesh
-		thigh.position = hip + Vector3(cos(ang) * 0.18, -0.42, sin(ang) * 0.18)
-		thigh.rotation_degrees.z = cos(ang) * 22.0
-		thigh.rotation_degrees.x = sin(ang) * 22.0
+		thigh.position = hip + Vector3(cos(ang) * reach * 0.5, -0.38, sin(ang) * reach * 0.5)
+		thigh.rotation_degrees.z = cos(ang) * 28.0
+		thigh.rotation_degrees.x = sin(ang) * 26.0
 		root.add_child(thigh)
-		add_sphere(root, hip + Vector3(cos(ang) * 0.38, -0.92, sin(ang) * 0.38), 0.12, flesh)
-	for i in 6:
-		var ang := TAU * float(i) / 6.0
+		add_sphere(root, hip + Vector3(cos(ang) * reach, -0.85, sin(ang) * reach), 0.1, flesh)
+	# Crown filaments
+	for i in 8:
+		var ang := TAU * float(i) / 8.0
 		var crown := MeshInstance3D.new()
 		var cmesh := CylinderMesh.new()
-		cmesh.top_radius = 0.012
-		cmesh.bottom_radius = 0.045
-		cmesh.height = 0.7
-		cmesh.material = flesh_mat(Color(0.7, 0.98, 0.4), 2.0)
+		cmesh.top_radius = 0.01
+		cmesh.bottom_radius = 0.04
+		cmesh.height = 0.55 + float(i % 3) * 0.18
+		cmesh.material = flesh_mat(Color(0.72, 1.0, 0.42), 2.2)
 		crown.mesh = cmesh
-		crown.position = Vector3(cos(ang) * 0.16, 2.28, sin(ang) * 0.16)
-		crown.rotation_degrees.z = cos(ang) * 28.0
-		crown.rotation_degrees.x = -sin(ang) * 28.0
+		crown.position = Vector3(cos(ang) * 0.2, 2.05, sin(ang) * 0.18)
+		crown.rotation_degrees.z = cos(ang) * 32.0
+		crown.rotation_degrees.x = -sin(ang) * 30.0
 		root.add_child(crown)
-	for i in 4:
-		var ang := TAU * float(i) / 4.0 + 0.4
+	for i in 5:
+		var ang := TAU * float(i) / 5.0 + 0.55
 		var hang := MeshInstance3D.new()
 		var hmesh := CylinderMesh.new()
-		hmesh.top_radius = 0.018
-		hmesh.bottom_radius = 0.05
-		hmesh.height = 0.85
+		hmesh.top_radius = 0.015
+		hmesh.bottom_radius = 0.048
+		hmesh.height = 0.95
 		hmesh.material = flesh
 		hang.mesh = hmesh
-		hang.position = Vector3(cos(ang) * 0.32, 1.05, sin(ang) * 0.22)
-		hang.rotation_degrees.x = 12.0
+		hang.position = Vector3(cos(ang) * 0.38, 1.0, sin(ang) * 0.28)
+		hang.rotation_degrees.x = 18.0
 		root.add_child(hang)
 	var light := OmniLight3D.new()
-	light.position = Vector3(0, 1.6, 0)
+	light.position = Vector3(0, 1.55, 0)
 	light.light_color = PALE
-	light.light_energy = 2.8
-	light.omni_range = 7.5
-	light.light_volumetric_fog_energy = 1.8
+	light.light_energy = 3.2
+	light.omni_range = 8.0
+	light.light_volumetric_fog_energy = 2.0
 	root.add_child(light)
-	sparkle(root, Vector3(0, 1.7, 0), Color(0.55, 1.0, 0.38, 0.75), 0.7)
-	dust(root, Vector3(1.2, 1.4, 1.2), Color(0.55, 0.95, 0.32, 0.22), 18)
+	sparkle(root, Vector3(0, 1.6, 0), Color(0.55, 1.0, 0.38, 0.8), 0.85)
+	dust(root, Vector3(1.3, 1.5, 1.3), Color(0.55, 0.95, 0.32, 0.25), 22)
 	var tag := Label3D.new()
 	tag.text = "PALE HOST"
-	tag.position = Vector3(0, 2.7, 0)
+	tag.position = Vector3(0, 2.75, 0)
 	tag.font_size = 32
 	tag.modulate = PALE
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -890,39 +905,61 @@ static func dress_choir_husk(host: Node3D) -> void:
 		return
 	var hide := host.get_node_or_null("MeshInstance3D") as MeshInstance3D
 	if hide:
-		hide.material_override = choir_plate(Color(0.16, 0.18, 0.14))
+		hide.visible = false
 	var root := Node3D.new()
 	root.name = "LookHusk"
 	host.add_child(root)
 	var plate := choir_plate()
-	_box(root, Vector3(0, 1.15, 0.02), Vector3(0.55, 0.7, 0.32), plate)
-	_box(root, Vector3(-0.42, 1.35, 0.05), Vector3(0.22, 0.85, 0.22), plate)
-	_box(root, Vector3(0.48, 0.95, 0.08), Vector3(0.2, 1.15, 0.2), plate)
-	_box(root, Vector3(0.62, 0.45, 0.15), Vector3(0.16, 0.7, 0.16), paint_mat(Color(0.28, 0.16, 0.1)))
-	add_sphere(root, Vector3(0, 1.62, 0.04), 0.2, flesh_mat(Color(0.42, 0.55, 0.32), 0.8), Vector3(1.0, 0.85, 0.9))
+	var rust := paint_mat(Color(0.32, 0.16, 0.08))
+	# Asymmetric wrecked scavenger frame — wrong proportions, dangling arm, exposed shard.
+	_box(root, Vector3(0.02, 1.12, 0.0), Vector3(0.58, 0.72, 0.34), plate)
+	_box(root, Vector3(-0.08, 0.78, -0.12), Vector3(0.42, 0.22, 0.28), rust)
+	_box(root, Vector3(-0.48, 1.42, 0.02), Vector3(0.2, 0.95, 0.2), plate)
+	_box(root, Vector3(-0.62, 0.95, 0.18), Vector3(0.14, 0.55, 0.14), rust)
+	# Missing right shoulder — stump + hanging scavenged limb
+	_box(root, Vector3(0.38, 1.28, 0.05), Vector3(0.28, 0.22, 0.28), rust)
+	_box(root, Vector3(0.55, 0.72, 0.22), Vector3(0.16, 1.05, 0.16), plate)
+	_box(root, Vector3(0.68, 0.22, 0.35), Vector3(0.14, 0.35, 0.35), paint_mat(Color(0.2, 0.22, 0.16)))
+	# Uneven legs
+	_box(root, Vector3(-0.16, 0.42, 0.02), Vector3(0.18, 0.78, 0.18), plate)
+	_box(root, Vector3(0.2, 0.35, 0.06), Vector3(0.16, 0.62, 0.16), rust)
+	add_sphere(root, Vector3(0.02, 1.68, 0.02), 0.22, flesh_mat(Color(0.38, 0.52, 0.28), 0.9), Vector3(1.05, 0.8, 0.95))
 	var shard := MeshInstance3D.new()
 	var prism := PrismMesh.new()
-	prism.size = Vector3(0.22, 0.34, 0.18)
-	prism.material = emit_surface(PALE, 3.6)
+	prism.size = Vector3(0.28, 0.42, 0.2)
+	prism.material = emit_surface(PALE, 4.2)
 	shard.mesh = prism
-	shard.position = Vector3(0, 1.18, 0.22)
+	shard.position = Vector3(0.05, 1.15, 0.28)
+	shard.rotation_degrees = Vector3(12, 18, -8)
 	root.add_child(shard)
 	var vis := MeshInstance3D.new()
 	var vmesh := BoxMesh.new()
-	vmesh.size = Vector3(0.28, 0.08, 0.06)
+	vmesh.size = Vector3(0.32, 0.07, 0.06)
 	vmesh.material = visor_mat(PALE)
 	vis.mesh = vmesh
-	vis.position = Vector3(0, 1.64, 0.2)
+	vis.position = Vector3(0.02, 1.7, 0.22)
 	root.add_child(vis)
+	# Broken antenna / horn
+	var horn := MeshInstance3D.new()
+	var hmesh := CylinderMesh.new()
+	hmesh.top_radius = 0.02
+	hmesh.bottom_radius = 0.05
+	hmesh.height = 0.55
+	hmesh.material = emit_surface(Color(0.45, 1.0, 0.35), 2.4)
+	horn.mesh = hmesh
+	horn.position = Vector3(-0.12, 2.05, -0.05)
+	horn.rotation_degrees = Vector3(25, 0, -35)
+	root.add_child(horn)
 	var light := OmniLight3D.new()
-	light.position = Vector3(0, 1.2, 0.2)
+	light.position = Vector3(0, 1.2, 0.25)
 	light.light_color = PALE
-	light.light_energy = 2.1
-	light.omni_range = 5.0
+	light.light_energy = 2.5
+	light.omni_range = 5.5
 	root.add_child(light)
+	sparkle(root, Vector3(0.05, 1.2, 0.3), Color(0.55, 1.0, 0.4, 0.65), 0.4)
 	var tag := Label3D.new()
 	tag.text = "FERAL HUSK"
-	tag.position = Vector3(0, 2.25, 0)
+	tag.position = Vector3(0, 2.35, 0)
 	tag.font_size = 30
 	tag.modulate = Color(0.7, 0.95, 0.45)
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED

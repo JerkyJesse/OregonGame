@@ -50,6 +50,8 @@ static func spawn_loot(world: Node, part: Dictionary, pos: Vector3, drop_name: S
 	drop.set("part", part)
 	if not extra.is_empty():
 		drop.set("extra", extra.duplicate())
+	if drop_name.begins_with("RivalBag"):
+		drop.set("rival_bag", true)
 	world.add_child(drop)
 	drop.global_position = pos + Vector3(0, 0.6, 0)
 
@@ -65,7 +67,8 @@ static func spawn_bag(world: Node, parts: Array, pos: Vector3, drop_name: String
 		var item: Variant = parts[i]
 		if item is Dictionary and not (item as Dictionary).is_empty():
 			rest.append(item)
-	spawn_loot(world, first, pos, drop_name, rest)
+	var name := drop_name if drop_name != "" else "RivalBag"
+	spawn_loot(world, first, pos, name, rest)
 
 
 static func emit_loot(world: Node, part: Dictionary, pos: Vector3) -> void:
@@ -398,16 +401,23 @@ static func _on_machine_died(world: Node3D, pos: Vector3) -> void:
 
 
 static func _attach_climb(heavy: Node) -> void:
+	_add_climb_stage(heavy, Vector3(2.4, 1.1, 0.2), 0)
+	_add_climb_stage(heavy, Vector3(2.1, 4.2, 0.4), 1)
+	_add_climb_stage(heavy, Vector3(1.6, 7.4, 0.8), 2)
+
+
+static func _add_climb_stage(heavy: Node, pos: Vector3, stage: int) -> void:
 	var c: Node3D = (load("res://world/climb_point.gd") as GDScript).new()
 	var sh := CollisionShape3D.new()
 	var cyl := CylinderShape3D.new()
-	cyl.height = 3.0
-	cyl.radius = 2.2
+	cyl.height = 2.6 if stage < 2 else 3.2
+	cyl.radius = 2.0 if stage == 0 else 1.7
 	sh.shape = cyl
 	c.add_child(sh)
 	heavy.add_child(c)
-	c.position = Vector3(2.4, 1.2, 0)
+	c.position = pos
 	c.set("target_path", heavy.get_path())
+	c.set("stage", stage)
 
 
 static func _attach_core(machine: Node) -> void:
