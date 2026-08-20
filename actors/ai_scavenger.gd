@@ -104,10 +104,6 @@ func _paint() -> void:
 		else:
 			mesh.material_override = LOOK.paint_mat(col)
 		LOOK.dress_human(self, col, false)
-	if face_id == "":
-		if _nametag:
-			_nametag.visible = false
-		return
 	if _nametag == null:
 		_nametag = Label3D.new()
 		_nametag.position = Vector3(0, 2.15, 0)
@@ -117,7 +113,10 @@ func _paint() -> void:
 		_nametag.outline_modulate = Color(0, 0, 0, 0.85)
 		add_child(_nametag)
 	_nametag.visible = true
-	_nametag.text = WorldLore.face_name(face_id)
+	if face_id == "":
+		_nametag.text = WorldLore.rival_callsign("scav")
+	else:
+		_nametag.text = WorldLore.face_name(face_id)
 	_nametag.modulate = col.lightened(0.25)
 
 
@@ -134,9 +133,10 @@ func _physics_process(delta: float) -> void:
 		var dir := offset.normalized()
 		velocity.x = dir.x * _speed()
 		velocity.z = dir.z * _speed()
-		look_at(global_position + dir, Vector3.UP)
-		rotation.x = 0.0
-		rotation.z = 0.0
+		if dir.length() > 0.05:
+			look_at(global_position + dir, Vector3.UP)
+			rotation.x = 0.0
+			rotation.z = 0.0
 	else:
 		velocity.x = 0.0
 		velocity.z = 0.0
@@ -176,7 +176,7 @@ func _refresh_hostility() -> void:
 		"tax":
 			hostile = not RunState.tax_cleared
 		"jex":
-			hostile = RunState.has_raid_payload() or RunState.raid_carry.size() >= 2 or RunState.faction == "pale"
+			hostile = RunState.has_raid_payload() or RunState.faction == "pale"
 		"pell", "wren":
 			hostile = RunState.has_raid_payload() or RunState.faction == "pale"
 		"ash_nine":
@@ -208,10 +208,7 @@ func _goal() -> Vector3:
 				return home + Vector3(sin(Time.get_ticks_msec() * 0.0007), 0, cos(Time.get_ticks_msec() * 0.0007)) * 10.0
 			return home
 		"catwalk":
-			var sock := _nearest_socket()
-			if sock:
-				return sock.global_position
-			return Vector3(0.0, global_position.y, 12.0)
+			return _wren_goal()
 		"hunt_core":
 			var prey := _core_target()
 			if prey != Vector3.ZERO:
@@ -227,6 +224,20 @@ func _goal() -> Vector3:
 		if n is Node3D and bool(n.get("disabled")):
 			return (n as Node3D).global_position
 	return home + Vector3(sin(Time.get_ticks_msec() * 0.001), 0, cos(Time.get_ticks_msec() * 0.001)) * 8.0
+
+
+func _wren_goal() -> Vector3:
+	var sock := _nearest_socket()
+	var want_ground := sock != null and (RunState.has_raid_payload() or _alert_pos != Vector3.ZERO)
+	if sock and not bool(sock.get("taken")) and _job == "catwalk" and _bag.is_empty():
+		want_ground = global_position.distance_to(sock.global_position) < 22.0 and RunState.raid_timer > 20.0
+	if want_ground and sock and global_position.y < 4.0:
+		return sock.global_position
+	if want_ground and sock and global_position.y >= 4.0:
+		if global_position.z > 4.0:
+			return Vector3(10.0, 0.3, 8.0)
+		return Vector3(10.0, 8.45, 6.0)
+	return Vector3(sin(Time.get_ticks_msec() * 0.00045) * 16.0, 8.45, 0.0)
 
 
 func _core_target() -> Vector3:
@@ -286,6 +297,12 @@ func _escape() -> void:
 	Hud.show_banner(WorldLore.face_extracted(face_id, n))
 	if get_tree():
 		get_tree().call_group("yard_band", "push", WorldLore.face_extract_band(face_id))
+	var scene := get_tree().current_scene if get_tree() else null
+	if scene and scene.has_method("spawn_bag") and not _bag.is_empty():
+		scene.call("spawn_bag", _bag.duplicate(), global_position + Vector3(0, 0.2, 0))
+	else:
+		for part in _bag:
+			component_drop(part)
 	_bag.clear()
 	queue_free()
 
@@ -317,6 +334,7 @@ func _steal_core() -> bool:
 			_bag.append(part)
 			Hud.show_banner(WorldLore.face_stole(face_id, "Choir shard"))
 			Fx.play("hack")
+			_choir_answer()
 			_maybe_run_out()
 			return true
 	for n in get_tree().get_nodes_in_group("machine"):
@@ -327,9 +345,16 @@ func _steal_core() -> bool:
 				_bag.append(shard)
 				Hud.show_banner(WorldLore.face_stole(face_id, "Choir shard"))
 				Fx.play("hack")
+				_choir_answer()
 				_maybe_run_out()
 				return true
 	return false
+
+
+func _choir_answer() -> void:
+	var scene := get_tree().current_scene if get_tree() else null
+	if scene and scene.has_method("occupation_answer"):
+		scene.call("occupation_answer", global_position)
 
 
 func _yank_part() -> bool:
@@ -358,6 +383,8 @@ func _try_shoot() -> void:
 	var dist := global_position.distance_to(target.global_position)
 	if dist > 16.0 or dist < 1.4:
 		return
+	if not _has_los(target):
+		return
 	_fire_cd = 0.82
 	var from := global_position + Vector3(0, 1.3, 0)
 	var to := target.global_position + Vector3(0, 1.1, 0)
@@ -365,6 +392,22 @@ func _try_shoot() -> void:
 	Fx.play("vulcan")
 	if target.has_method("take_damage"):
 		target.call("take_damage", 7.0)
+
+
+func _has_los(target: Node3D) -> bool:
+	if get_world_3d() == null:
+		return false
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return false
+	var from := global_position + Vector3(0, 1.3, 0)
+	var to := target.global_position + Vector3(0, 1.1, 0)
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.exclude = [get_rid()]
+	if target is CollisionObject3D:
+		query.exclude.append((target as CollisionObject3D).get_rid())
+	query.collision_mask = 5
+	return space.intersect_ray(query).is_empty()
 
 
 func _player_node() -> Node:

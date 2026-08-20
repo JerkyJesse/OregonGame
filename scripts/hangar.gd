@@ -20,6 +20,15 @@ func _ready() -> void:
 	if has_node("Props"):
 		Greybox.build_hangar_props($Props, RunState.hangar_tier)
 	LOOK.apply(self, LOOK.KIND_HANGAR)
+	_lights()
+	var dodge := Label3D.new()
+	dodge.text = "NEW DODGE"
+	dodge.position = Vector3(0, 7.6, -16.4)
+	dodge.font_size = 96
+	dodge.modulate = Color(0.95, 0.55, 0.18)
+	dodge.outline_size = 10
+	dodge.outline_modulate = Color(0, 0, 0, 0.8)
+	add_child(dodge)
 	_park_frames()
 	_spawn_vendor()
 	_spawn_range()
@@ -81,7 +90,7 @@ func _park_frames() -> void:
 
 func _spawn_vendor() -> void:
 	var v: Node3D = (load("res://world/vendor.gd") as GDScript).new()
-	v.position = Vector3(14, 0, 12)
+	v.position = Vector3(14, 0, -13)
 	_stall_box(v, Vector3(0, 1.1, -0.7), Vector3(2.2, 2.2, 0.35), Color(0.22, 0.28, 0.24))
 	_stall_box(v, Vector3(-1.0, 1.0, 0.1), Vector3(0.3, 2.0, 1.4), Color(0.18, 0.2, 0.19))
 	_stall_box(v, Vector3(1.0, 1.0, 0.1), Vector3(0.3, 2.0, 1.4), Color(0.18, 0.2, 0.19))
@@ -105,6 +114,8 @@ func _spawn_vendor() -> void:
 	v.add_child(col)
 	var lab := Label3D.new()
 	lab.text = "TAM PICKS  ·  JUNK + FILTERS + PAINTS"
+	if RunState.extracts_completed > 0:
+		lab.text = "TAM PICKS  ·  restock after %d extract%s" % [RunState.extracts_completed, "" if RunState.extracts_completed == 1 else "s"]
 	lab.position = Vector3(0, 2.55, 0)
 	lab.font_size = 52
 	lab.modulate = Color(0.75, 0.95, 0.7)

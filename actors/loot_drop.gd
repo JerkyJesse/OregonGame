@@ -4,6 +4,7 @@ class_name LootDrop
 const LOOK := preload("res://world/WorldLook.gd")
 
 var part: Dictionary = {}
+var extra: Array = []
 var _spin: float = 0.0
 
 
@@ -33,6 +34,8 @@ func _process(delta: float) -> void:
 func get_interact_label() -> String:
 	if part.is_empty():
 		return ""
+	if extra.size() > 0:
+		return WorldLore.rival_bag_label(str(part.get("display_name", "part")), extra.size())
 	return "Pick up %s  [E]" % part.get("display_name", "part")
 
 
@@ -57,14 +60,23 @@ func _host_give(peer_id: int) -> void:
 			return
 		Hud.refresh_carry()
 		Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
-		part = {}
-		rpc_taken.rpc()
-		queue_free()
+		_pop_next()
+		if part.is_empty():
+			rpc_taken.rpc()
+			queue_free()
 		return
 	rpc_grant_part.rpc_id(peer_id, taken)
-	part = {}
-	rpc_taken.rpc()
-	queue_free()
+
+
+@rpc("any_peer", "reliable")
+func rpc_loot_result(ok: bool) -> void:
+	if not NetSession.is_host():
+		return
+	if ok:
+		_pop_next()
+		if part.is_empty():
+			rpc_taken.rpc()
+			queue_free()
 
 
 @rpc("any_peer", "reliable")
@@ -81,8 +93,10 @@ func rpc_grant_part(taken: Dictionary) -> void:
 	if RunState.add_carry(taken):
 		Hud.refresh_carry()
 		Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
+		rpc_loot_result.rpc_id(1, true)
 	else:
 		Hud.show_banner("Carry full.")
+		rpc_loot_result.rpc_id(1, false)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -94,6 +108,19 @@ func ai_steal() -> Dictionary:
 	if part.is_empty():
 		return {}
 	var taken: Dictionary = part
-	part = {}
-	queue_free()
+	_pop_next()
+	if part.is_empty():
+		queue_free()
 	return taken
+
+
+func _pop_next() -> void:
+	if extra.is_empty():
+		part = {}
+		return
+	var nxt: Variant = extra.pop_front()
+	if nxt is Dictionary:
+		part = nxt
+	else:
+		part = {}
+		_pop_next()

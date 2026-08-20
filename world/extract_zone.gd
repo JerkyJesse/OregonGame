@@ -81,8 +81,11 @@ func _process(delta: float) -> void:
 	_purge_invalid()
 	if _inside.is_empty() or Hud.ui_busy:
 		return
+	if _extractor_busy():
+		return
 	if extract_type == "tax" and not _tax_clear():
 		_handle_tax()
+		Hud.set_objective(WorldLore.tax_objective())
 		return
 	if extract_type == "payload" and not _has_payload():
 		Hud.set_prompt(WorldLore.payload_need_prompt())
@@ -128,6 +131,19 @@ func _rpc_extract() -> void:
 		Hud.show_banner(WorldLore.extracted_banner())
 
 
+func finish_if_channeling() -> void:
+	if _inside.is_empty() or _progress < 0.55:
+		return
+	if extract_type == "payload" and not _has_payload():
+		return
+	if extract_type == "tax" and not _tax_clear():
+		return
+	if extract_type == "vehicle" and not _has_hauler():
+		return
+	Fx.play("extract")
+	RunState.extract_to_hangar()
+
+
 func _has_payload() -> bool:
 	for p in RunState.raid_carry:
 		if bool(p.get("is_payload", false)):
@@ -154,6 +170,16 @@ func _purge_invalid() -> void:
 		if is_instance_valid(body):
 			keep.append(body)
 	_inside = keep
+
+
+func _extractor_busy() -> bool:
+	for body in _inside:
+		if not (body is Scavenger):
+			continue
+		var t: Variant = (body as Scavenger).interact_focus
+		if t is Node and is_instance_valid(t) and t != self:
+			return true
+	return false
 
 
 func _tax_clear() -> bool:

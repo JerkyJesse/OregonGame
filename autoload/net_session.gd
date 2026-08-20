@@ -155,6 +155,23 @@ func disconnect_game() -> void:
 	session_changed.emit()
 
 
+func on_local_extracted() -> void:
+	if not is_online():
+		return
+	if is_host():
+		rpc_host_extracted.rpc()
+		disconnect_game()
+	else:
+		_drop()
+		session_changed.emit()
+
+
+@rpc("authority", "call_remote", "reliable")
+func rpc_host_extracted() -> void:
+	Hud.show_banner(WorldLore.host_extracted_banner())
+	get_tree().call_group("extract_zone", "finish_if_channeling")
+
+
 func _on_peer_in(id: int) -> void:
 	session_changed.emit()
 	if is_host() and raid_path != "":

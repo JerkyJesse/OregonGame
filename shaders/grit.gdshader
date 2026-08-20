@@ -10,6 +10,8 @@ uniform float scale = 0.22;
 uniform float rust_amount : hint_range(0.0, 1.0) = 0.32;
 uniform float emission_energy = 0.0;
 uniform vec4 emission_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+uniform sampler2D grit_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float tex_mix : hint_range(0.0, 1.0) = 0.4;
 
 float hash(vec3 p) {
 	p = fract(p * 0.3183099 + vec3(0.11, 0.17, 0.23));
@@ -29,14 +31,26 @@ float noise(vec3 p) {
 		f.z);
 }
 
+vec3 triplanar(vec3 wp, vec3 wn, float s) {
+	vec3 n = abs(wn);
+	n = max(n, vec3(0.001));
+	n /= n.x + n.y + n.z;
+	vec3 tx = texture(grit_tex, wp.zy * s).rgb;
+	vec3 ty = texture(grit_tex, wp.xz * s).rgb;
+	vec3 tz = texture(grit_tex, wp.xy * s).rgb;
+	return tx * n.x + ty * n.y + tz * n.z;
+}
+
 void fragment() {
 	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 wn = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	float n = noise(wp * scale);
 	float n2 = noise(wp * scale * 3.4 + vec3(9.0, 4.0, 2.0));
 	float n3 = noise(wp * scale * 9.0);
 	float rust_mask = smoothstep(1.0 - rust_amount, 1.02, n * 0.62 + n2 * 0.48);
 	vec3 col = mix(albedo.rgb, stain.rgb, n * 0.55 + n3 * 0.18);
 	col = mix(col, rust.rgb, rust_mask * rust_amount);
+	col = mix(col, col * triplanar(wp, wn, scale * 0.85) * 1.45, tex_mix);
 	ALBEDO = col;
 	ROUGHNESS = clamp(roughness + n * 0.2 - rust_mask * 0.1, 0.18, 1.0);
 	METALLIC = clamp(metallic - rust_mask * 0.22 + n3 * 0.05, 0.0, 1.0);

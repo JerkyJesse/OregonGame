@@ -11,6 +11,8 @@ const SCAV_SCENE := preload("res://actors/scavenger.tscn")
 const LOOT_SCENE := preload("res://actors/loot_drop.tscn")
 const EXTRACT_SCENE := preload("res://world/extract_zone.tscn")
 const AI_SCENE := preload("res://actors/ai_scavenger.tscn")
+const PALE_SCENE := preload("res://actors/pale_host.tscn")
+const HUSK_SCENE := preload("res://actors/choir_husk.tscn")
 
 
 static func begin(world: Node3D, map_id: String) -> void:
@@ -39,15 +41,31 @@ static func begin(world: Node3D, map_id: String) -> void:
 	LOOK.apply(world, LOOK.KIND_PIPE if map_id == "pipeline" else LOOK.KIND_YARD)
 
 
-static func spawn_loot(world: Node, part: Dictionary, pos: Vector3, drop_name: String = "") -> void:
+static func spawn_loot(world: Node, part: Dictionary, pos: Vector3, drop_name: String = "", extra: Array = []) -> void:
 	if part.is_empty() or world == null:
 		return
 	var drop: Node3D = LOOT_SCENE.instantiate()
 	if drop_name != "":
 		drop.name = drop_name
 	drop.set("part", part)
+	if not extra.is_empty():
+		drop.set("extra", extra.duplicate())
 	world.add_child(drop)
 	drop.global_position = pos + Vector3(0, 0.6, 0)
+
+
+static func spawn_bag(world: Node, parts: Array, pos: Vector3, drop_name: String = "") -> void:
+	if world == null or parts.is_empty():
+		return
+	var first: Variant = parts[0]
+	if not (first is Dictionary) or (first as Dictionary).is_empty():
+		return
+	var rest: Array = []
+	for i in range(1, parts.size()):
+		var item: Variant = parts[i]
+		if item is Dictionary and not (item as Dictionary).is_empty():
+			rest.append(item)
+	spawn_loot(world, first, pos, drop_name, rest)
 
 
 static func emit_loot(world: Node, part: Dictionary, pos: Vector3) -> void:
@@ -128,8 +146,9 @@ static func _setup_existing(world: Node3D) -> void:
 			)
 		_attach_climb(heavy)
 		_attach_core(heavy)
+		_nameplate(heavy, "OCCUPANCY WALKER — First Voice coat", Vector3(0, 8.4, 0), Color(0.45, 1.0, 0.4))
 	if world.has_node("Wreck"):
-		world.get_node("Wreck").set("extra_ids", PackedStringArray(["cooler_pack", "sensor_suite", "filter_canister"]))
+		world.get_node("Wreck").set("extra_ids", PackedStringArray(["cooler_pack", "sensor_suite", "filter_canister", "shield_emitter"]))
 
 
 static func _setup_ash_yard(world: Node3D) -> void:
@@ -143,10 +162,12 @@ static func _setup_ash_yard(world: Node3D) -> void:
 		spawn_loot(world, RunState.make_part("vulcan_chest", 0.52), Vector3(-20, 0, -5))
 		spawn_loot(world, RunState.make_part("filter_canister", 0.7), Vector3(-18, 0, -3))
 	else:
-		med.call("seed_wreck_parts", ["vulcan_chest", "pulse_cannon", "armor_plate", "reactor_core", "data_core"])
+		med.call("seed_wreck_parts", ["vulcan_chest", "pulse_cannon", "armor_plate", "reactor_core", "data_core", "jump_jets"])
 	med.set("disabled", true)
 	med.set("alive", false)
 	med.set("hull", 0.0)
+	med.rotation_degrees = Vector3(8.0, 32.0, 18.0)
+	med.position = Vector3(-12, 0.55, -6)
 	_nameplate(med, "KNEELING HELIX — Jex already started" if RunState.raid_mode == "late_drop" else "KNEELING HELIX — strip the gun", Vector3(0, 6.2, 0), Color(0.85, 0.7, 0.35))
 	if med.has_signal("component_dropped"):
 		med.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
@@ -155,12 +176,19 @@ static func _setup_ash_yard(world: Node3D) -> void:
 	_attach_core(med)
 	if RunState.raid_mode == "scav_wave":
 		var m2: Node3D = MEDIUM_SCENE.instantiate()
+		m2.name = "ScavWaveHusk"
 		m2.position = Vector3(12, 0, 16)
 		world.add_child(m2)
-		m2.call("seed_wreck_parts", ["missile_pod", "heavy_plating", "knee_vulcan", "filter_canister"])
+		m2.call("seed_wreck_parts", ["missile_pod", "heavy_plating", "knee_vulcan", "filter_canister", "shield_emitter"])
 		m2.set("disabled", true)
 		m2.set("alive", false)
-		return
+		m2.set("hull", 0.0)
+		_nameplate(m2, "SECOND HUSK — strip it", Vector3(0, 6.2, 0), Color(0.85, 0.55, 0.3))
+		if m2.has_signal("component_dropped"):
+			m2.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
+				emit_loot(world, part, pos)
+			)
+		_attach_core(m2)
 
 
 static func _setup_pipeline(world: Node3D) -> void:
@@ -170,7 +198,7 @@ static func _setup_pipeline(world: Node3D) -> void:
 	med.name = "DeadMedium"
 	med.position = Vector3(-8, 0, 6)
 	world.add_child(med)
-	med.call("seed_wreck_parts", ["pile_bunker", "pulse_cannon", "armor_plate", "data_core"])
+	med.call("seed_wreck_parts", ["pile_bunker", "pulse_cannon", "armor_plate", "data_core", "jump_jets"])
 	med.set("disabled", true)
 	med.set("alive", false)
 	med.set("hull", 0.0)
@@ -230,9 +258,12 @@ static func _spawn_events(world: Node3D, map_id: String) -> void:
 	if not kit.is_empty():
 		var kit_pos := Vector3(-26, 0, 6) if map_id != "pipeline" else Vector3(-18, 0, -4)
 		spawn_loot(world, kit, kit_pos, "FilterDrop")
-	if RunState.raid_mode == "combat":
+		var drop := world.get_node_or_null("FilterDrop")
+		if drop:
+			_nameplate(drop, "SEALED-AIR CAN  [E] then [R] swap", Vector3(0, 1.6, 0), Color(0.55, 0.95, 0.45))
+	if map_id != "pipeline":
 		world.get_tree().create_timer(90.0).timeout.connect(func() -> void:
-			if not is_instance_valid(world):
+			if not is_instance_valid(world) or not RunState.in_raid:
 				return
 			Hud.show_banner(WorldLore.incoming_heavy_banner())
 			Fx.play("alarm")
@@ -242,6 +273,7 @@ static func _spawn_events(world: Node3D, map_id: String) -> void:
 			extra.set("ai_controlled", true)
 			if extra.has_method("set_patrol"):
 				extra.call("set_patrol", [Vector3(-30, 0, -24), Vector3(-10, 0, 20)])
+			_nameplate(extra, "INBOUND WALKER", Vector3(0, 8.4, 0), Color(0.95, 0.35, 0.2))
 		)
 
 
@@ -434,9 +466,11 @@ static func _spawn_rivals(world: Node3D, map_id: String) -> void:
 	if RunState.faction != "pale":
 		var bloom_pos := Vector3(18, 0.2, -12) if map_id == "pipeline" else Vector3(22, 0.2, -8)
 		_spawn_face(world, "pale", bloom_pos)
+	_spawn_occupants(world, map_id)
 	if map_id == "pipeline":
-		_spawn_face(world, "wren", Vector3(0, 0.2, 12))
-		_spawn_face(world, "ash_nine", Vector3(-8, 0.2, 8))
+		_spawn_face(world, "wren", Vector3(10, 8.45, 0))
+		var nine := _spawn_face(world, "ash_nine", Vector3(-8, 0.2, 7.4))
+		_nameplate(nine, "ASH-NINE — husk ankle", Vector3(0, 2.4, 0), Color(0.9, 0.3, 0.2))
 		return
 	if RunState.raid_mode == "late_drop":
 		_spawn_face(world, "jex", Vector3(-22, 0.2, -6))
@@ -455,12 +489,47 @@ static func _spawn_rivals(world: Node3D, map_id: String) -> void:
 	)
 
 
-static func _spawn_face(world: Node3D, id: String, pos: Vector3) -> void:
+static func _spawn_occupants(world: Node3D, map_id: String) -> void:
+	if map_id == "pipeline":
+		spawn_pale(world, Vector3(16, 0.2, -14))
+		spawn_pale(world, Vector3(-18, 0.2, 16))
+		spawn_husk(world, Vector3(8, 0.2, -12))
+	else:
+		spawn_pale(world, Vector3(28, 0.2, -16))
+		spawn_pale(world, Vector3(-30, 0.2, -20))
+		spawn_pale(world, Vector3(12, 0.2, 30))
+		spawn_husk(world, Vector3(-16, 0.2, 18))
+	if RunState.raid_mode == "scav_wave":
+		spawn_pale(world, Vector3(-8, 0.2, 24))
+		spawn_husk(world, Vector3(18, 0.2, -6))
+		spawn_husk(world, Vector3(-26, 0.2, 6))
+
+
+static func spawn_pale(world: Node3D, pos: Vector3) -> void:
+	if world == null or not is_instance_valid(world):
+		return
+	var alien: Node3D = PALE_SCENE.instantiate()
+	alien.position = pos
+	alien.set("home", pos)
+	world.add_child(alien)
+
+
+static func spawn_husk(world: Node3D, pos: Vector3) -> void:
+	if world == null or not is_instance_valid(world):
+		return
+	var husk: Node3D = HUSK_SCENE.instantiate()
+	husk.position = pos
+	husk.set("home", pos)
+	world.add_child(husk)
+
+
+static func _spawn_face(world: Node3D, id: String, pos: Vector3) -> Node3D:
 	var ai: Node3D = AI_SCENE.instantiate()
 	ai.position = pos
 	ai.set("face_id", id)
 	ai.set("home", pos)
 	world.add_child(ai)
+	return ai
 
 
 static func _spawn_dais(world: Node3D, pos: Vector3) -> void:
@@ -505,11 +574,10 @@ static func occupation_answer(world: Node3D, pos: Vector3) -> void:
 	world.set_meta("choir_answered", true)
 	Hud.show_banner(WorldLore.choir_answer_banner())
 	Fx.play("alarm")
-	var husk: Node3D = AI_SCENE.instantiate()
-	husk.position = pos + Vector3(7.2, 0.2, -3.4)
-	husk.set("home", husk.position)
-	husk.set("hostile", true)
-	world.add_child(husk)
+	spawn_husk(world, pos + Vector3(7.2, 0.2, -3.4))
+	spawn_pale(world, pos + Vector3(-6.4, 0.2, 5.0))
+	if tree:
+		tree.call_group("pale_host", "alert_to", pos)
 
 
 static func _nameplate(host: Node, text: String, offset: Vector3, color: Color) -> void:

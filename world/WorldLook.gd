@@ -4,6 +4,11 @@ extends RefCounted
 const GRIT := preload("res://shaders/grit.gdshader")
 const ATMO := preload("res://shaders/atmosphere.gdshader")
 const ADD := preload("res://shaders/add_unshaded.gdshader")
+const FLESH_SH := preload("res://shaders/pale_flesh.gdshader")
+const TEX_RUST := preload("res://assets/tex/rust_grit.jpg")
+const TEX_FLESH := preload("res://assets/tex/pale_flesh.jpg")
+const TEX_CHOIR := preload("res://assets/tex/choir_vein.jpg")
+const TEX_SPORE := preload("res://assets/tex/bloom_spore.jpg")
 
 const KIND_HANGAR := "hangar"
 const KIND_YARD := "yard"
@@ -30,6 +35,8 @@ static func surface(color: Color, emit: float = 0.0, rust_amt: float = 0.32, met
 	m.set_shader_parameter("rust_amount", rust_amt)
 	m.set_shader_parameter("emission_energy", emit)
 	m.set_shader_parameter("emission_color", color)
+	m.set_shader_parameter("grit_tex", TEX_RUST)
+	m.set_shader_parameter("tex_mix", 0.48)
 	return m
 
 
@@ -63,6 +70,29 @@ static func paint_mat(color: Color, translucent: bool = false) -> StandardMateri
 		m.emission_enabled = true
 		m.emission = color.darkened(0.35)
 		m.emission_energy_multiplier = 0.07
+	return m
+
+
+static func flesh_mat(color: Color = PALE, energy: float = 1.2) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = FLESH_SH
+	m.set_shader_parameter("albedo", color)
+	m.set_shader_parameter("flesh_tex", TEX_FLESH)
+	m.set_shader_parameter("emission_energy", energy)
+	m.set_shader_parameter("pulse", 1.25)
+	return m
+
+
+static func choir_plate(color: Color = Color(0.18, 0.2, 0.16)) -> StandardMaterial3D:
+	var m := paint_mat(color)
+	m.albedo_texture = TEX_CHOIR
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(1.3, 1.3, 1.3)
+	m.emission_enabled = true
+	m.emission = Color(0.32, 0.82, 0.28)
+	m.emission_texture = TEX_CHOIR
+	m.emission_energy_multiplier = 0.55
 	return m
 
 
@@ -514,6 +544,22 @@ static func add_mesh(parent: Node3D, pos: Vector3, size: Vector3, color: Color, 
 	return mi
 
 
+static func add_sphere(parent: Node3D, pos: Vector3, radius: float, mat: Material, scale := Vector3.ONE) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var sph := SphereMesh.new()
+	sph.radius = radius
+	sph.height = radius * 2.0
+	sph.radial_segments = 14
+	sph.rings = 8
+	sph.material = mat
+	mi.mesh = sph
+	mi.position = pos
+	mi.scale = scale
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	parent.add_child(mi)
+	return mi
+
+
 static func add_cyl(parent: Node3D, pos: Vector3, height: float, radius: float, color: Color, rot := Vector3.ZERO, emit: float = 0.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
@@ -597,6 +643,11 @@ static func _dress_yard(d: Node3D) -> void:
 	pale.light_energy = 2.2
 	pale.omni_range = 22.0
 	d.add_child(pale)
+	for i in 10:
+		var gp := Vector3(rng.randf_range(-44, 44), 0.0, rng.randf_range(-36, 36))
+		if gp.length() < 14.0:
+			continue
+		pale_growth(d, gp, 50 + i)
 
 
 static func _dress_pipeline(d: Node3D) -> void:
@@ -615,6 +666,9 @@ static func _dress_pipeline(d: Node3D) -> void:
 	leak.light_energy = 3.5
 	leak.omni_range = 16.0
 	d.add_child(leak)
+	pale_growth(d, Vector3(0, 0, 14.5), 9)
+	pale_growth(d, Vector3(-16, 0, -8), 12)
+	pale_growth(d, Vector3(18, 0, 8), 15)
 
 
 static func _dress_hangar(d: Node3D, world: Node3D) -> void:
@@ -710,6 +764,171 @@ static func dress_human(host: Node3D, suit: Color, hide_fp: bool = false) -> voi
 	tank.rotation_degrees.x = 8
 	tank.layers = layer
 	gear.add_child(tank)
+	if suit.g > 0.55 and suit.g > suit.r + 0.08:
+		for i in 4:
+			var veil := MeshInstance3D.new()
+			var vc := CylinderMesh.new()
+			vc.top_radius = 0.012
+			vc.bottom_radius = 0.03
+			vc.height = 0.55
+			vc.material = flesh_mat(PALE, 1.6)
+			veil.mesh = vc
+			var ang := TAU * float(i) / 4.0
+			veil.position = Vector3(cos(ang) * 0.18, 1.22, sin(ang) * 0.16 - 0.08)
+			veil.rotation_degrees.x = 18.0
+			veil.layers = layer
+			gear.add_child(veil)
+
+
+static func pale_growth(parent: Node3D, pos: Vector3, seed: int = 1) -> void:
+	if parent == null:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var root := Node3D.new()
+	root.position = pos
+	parent.add_child(root)
+	add_sphere(root, Vector3(0, 0.22, 0), 0.42, flesh_mat(Color(0.48, 0.78, 0.28), 0.7), Vector3(1.4, 0.45, 1.3))
+	for i in 5:
+		var ang := TAU * float(i) / 5.0 + rng.randf() * 0.4
+		var h := rng.randf_range(0.7, 1.6)
+		var cyl := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.03
+		mesh.bottom_radius = 0.09
+		mesh.height = h
+		mesh.material = flesh_mat(PALE, 1.4)
+		cyl.mesh = mesh
+		cyl.position = Vector3(cos(ang) * 0.22, h * 0.5, sin(ang) * 0.22)
+		cyl.rotation_degrees.z = rng.randf_range(-18, 18)
+		cyl.rotation_degrees.x = rng.randf_range(-12, 12)
+		root.add_child(cyl)
+	sparkle(root, Vector3(0, 0.8, 0), Color(0.55, 1.0, 0.35, 0.65), 0.45)
+
+
+static func dress_pale_host(host: Node3D) -> void:
+	if host == null or host.get_node_or_null("LookAlien") != null:
+		return
+	var hide := host.get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if hide:
+		hide.visible = false
+	var root := Node3D.new()
+	root.name = "LookAlien"
+	host.add_child(root)
+	var flesh := flesh_mat(PALE, 1.35)
+	add_sphere(root, Vector3(0, 1.35, 0), 0.52, flesh, Vector3(0.78, 1.15, 0.72))
+	add_sphere(root, Vector3(0, 1.85, 0.08), 0.28, flesh_mat(Color(0.72, 0.95, 0.42), 1.8), Vector3(0.85, 0.7, 0.9))
+	var slit := MeshInstance3D.new()
+	var sm := BoxMesh.new()
+	sm.size = Vector3(0.34, 0.06, 0.08)
+	sm.material = emit_surface(Color(0.85, 1.0, 0.45), 4.2)
+	slit.mesh = sm
+	slit.position = Vector3(0, 1.88, 0.28)
+	root.add_child(slit)
+	for i in 3:
+		var ang := TAU * float(i) / 3.0
+		var hip := Vector3(cos(ang) * 0.28, 0.95, sin(ang) * 0.28)
+		var thigh := MeshInstance3D.new()
+		var tmesh := CylinderMesh.new()
+		tmesh.top_radius = 0.07
+		tmesh.bottom_radius = 0.11
+		tmesh.height = 0.95
+		tmesh.material = flesh
+		thigh.mesh = tmesh
+		thigh.position = hip + Vector3(cos(ang) * 0.18, -0.42, sin(ang) * 0.18)
+		thigh.rotation_degrees.z = cos(ang) * 22.0
+		thigh.rotation_degrees.x = sin(ang) * 22.0
+		root.add_child(thigh)
+		add_sphere(root, hip + Vector3(cos(ang) * 0.38, -0.92, sin(ang) * 0.38), 0.12, flesh)
+	for i in 6:
+		var ang := TAU * float(i) / 6.0
+		var crown := MeshInstance3D.new()
+		var cmesh := CylinderMesh.new()
+		cmesh.top_radius = 0.012
+		cmesh.bottom_radius = 0.045
+		cmesh.height = 0.7
+		cmesh.material = flesh_mat(Color(0.7, 0.98, 0.4), 2.0)
+		crown.mesh = cmesh
+		crown.position = Vector3(cos(ang) * 0.16, 2.28, sin(ang) * 0.16)
+		crown.rotation_degrees.z = cos(ang) * 28.0
+		crown.rotation_degrees.x = -sin(ang) * 28.0
+		root.add_child(crown)
+	for i in 4:
+		var ang := TAU * float(i) / 4.0 + 0.4
+		var hang := MeshInstance3D.new()
+		var hmesh := CylinderMesh.new()
+		hmesh.top_radius = 0.018
+		hmesh.bottom_radius = 0.05
+		hmesh.height = 0.85
+		hmesh.material = flesh
+		hang.mesh = hmesh
+		hang.position = Vector3(cos(ang) * 0.32, 1.05, sin(ang) * 0.22)
+		hang.rotation_degrees.x = 12.0
+		root.add_child(hang)
+	var light := OmniLight3D.new()
+	light.position = Vector3(0, 1.6, 0)
+	light.light_color = PALE
+	light.light_energy = 2.8
+	light.omni_range = 7.5
+	light.light_volumetric_fog_energy = 1.8
+	root.add_child(light)
+	sparkle(root, Vector3(0, 1.7, 0), Color(0.55, 1.0, 0.38, 0.75), 0.7)
+	dust(root, Vector3(1.2, 1.4, 1.2), Color(0.55, 0.95, 0.32, 0.22), 18)
+	var tag := Label3D.new()
+	tag.text = "PALE HOST"
+	tag.position = Vector3(0, 2.7, 0)
+	tag.font_size = 32
+	tag.modulate = PALE
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.outline_size = 6
+	tag.outline_modulate = Color(0, 0, 0, 0.85)
+	root.add_child(tag)
+
+
+static func dress_choir_husk(host: Node3D) -> void:
+	if host == null or host.get_node_or_null("LookHusk") != null:
+		return
+	var hide := host.get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if hide:
+		hide.material_override = choir_plate(Color(0.16, 0.18, 0.14))
+	var root := Node3D.new()
+	root.name = "LookHusk"
+	host.add_child(root)
+	var plate := choir_plate()
+	_box(root, Vector3(0, 1.15, 0.02), Vector3(0.55, 0.7, 0.32), plate)
+	_box(root, Vector3(-0.42, 1.35, 0.05), Vector3(0.22, 0.85, 0.22), plate)
+	_box(root, Vector3(0.48, 0.95, 0.08), Vector3(0.2, 1.15, 0.2), plate)
+	_box(root, Vector3(0.62, 0.45, 0.15), Vector3(0.16, 0.7, 0.16), paint_mat(Color(0.28, 0.16, 0.1)))
+	add_sphere(root, Vector3(0, 1.62, 0.04), 0.2, flesh_mat(Color(0.42, 0.55, 0.32), 0.8), Vector3(1.0, 0.85, 0.9))
+	var shard := MeshInstance3D.new()
+	var prism := PrismMesh.new()
+	prism.size = Vector3(0.22, 0.34, 0.18)
+	prism.material = emit_surface(PALE, 3.6)
+	shard.mesh = prism
+	shard.position = Vector3(0, 1.18, 0.22)
+	root.add_child(shard)
+	var vis := MeshInstance3D.new()
+	var vmesh := BoxMesh.new()
+	vmesh.size = Vector3(0.28, 0.08, 0.06)
+	vmesh.material = visor_mat(PALE)
+	vis.mesh = vmesh
+	vis.position = Vector3(0, 1.64, 0.2)
+	root.add_child(vis)
+	var light := OmniLight3D.new()
+	light.position = Vector3(0, 1.2, 0.2)
+	light.light_color = PALE
+	light.light_energy = 2.1
+	light.omni_range = 5.0
+	root.add_child(light)
+	var tag := Label3D.new()
+	tag.text = "FERAL HUSK"
+	tag.position = Vector3(0, 2.25, 0)
+	tag.font_size = 30
+	tag.modulate = Color(0.7, 0.95, 0.45)
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.outline_size = 6
+	tag.outline_modulate = Color(0, 0, 0, 0.85)
+	root.add_child(tag)
 
 
 static func dress_dais(dais: Node3D) -> void:
@@ -1023,6 +1242,12 @@ static func _showcase_mech(parent: Node3D) -> Node3D:
 	wreck.rotation_degrees = Vector3(0, 35, 12)
 	parent.add_child(wreck)
 	_box(wreck, Vector3(0, 1.2, 0), Vector3(5.2, 2.0, 3.2), paint_mat(Color(0.1, 0.1, 0.1)))
+	var alien := Node3D.new()
+	alien.position = Vector3(6.8, 0, -2.4)
+	alien.rotation_degrees.y = -40.0
+	parent.add_child(alien)
+	dress_pale_host(alien)
+	pale_growth(parent, Vector3(4.5, 0, -8), 3)
 	return root
 
 

@@ -57,7 +57,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0, -8)
 part_id = "pile_bunker"
 
 [node name="LightMech" parent="." instance=ExtResource("3_mech")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 8.2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 4)
 
 [node name="ExtractZone" parent="." instance=ExtResource("4_extract")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, 0, -8)

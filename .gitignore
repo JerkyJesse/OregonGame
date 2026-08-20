@@ -9,3 +9,7 @@ Thumbs.db
 desktop.ini
 *.tmp
 build/
+dist/
+export_credentials.cfg
+*.pfx
+*.p12
