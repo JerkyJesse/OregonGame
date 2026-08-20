@@ -41,7 +41,8 @@ func get_interact_label() -> String:
 	if hp <= 0.0:
 		return "%s wrecked" % pretty
 	if equipped is Dictionary and not (equipped as Dictionary).is_empty():
-		return "Strip %s (%s, %.0f%%)  [E]" % [equipped.get("display_name", "?"), pretty, float(equipped.get("condition", 1.0)) * 100.0]
+		var crack := "  CRACKING" if hp < 28.0 else ""
+		return "Strip %s (%s %.0f%s, %.0f%%)  [E]" % [equipped.get("display_name", "?"), pretty, hp, crack, float(equipped.get("condition", 1.0)) * 100.0]
 	var carry := _matching_carry()
 	if not carry.is_empty():
 		return "Bolt %s onto %s  [E]" % [carry.get("display_name", "?"), pretty]

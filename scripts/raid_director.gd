@@ -95,9 +95,13 @@ static func spawn_loot(world: Node, part: Dictionary, pos: Vector3, drop_name: S
 	if part.is_empty() or world == null:
 		return
 	var drop: Node3D = LOOT_SCENE.instantiate()
+	if drop_name == "" and bool(part.get("torn_off", false)):
+		drop_name = "Torn_%s" % str(part.get("torn_slot", "part"))
 	if drop_name != "":
 		drop.name = drop_name
 	drop.set("part", part)
+	if bool(part.get("torn_off", false)):
+		drop.set("torn_off", true)
 	if not extra.is_empty():
 		drop.set("extra", extra.duplicate())
 	if drop_name.begins_with("RivalBag"):
@@ -126,6 +130,24 @@ static func emit_loot(world: Node, part: Dictionary, pos: Vector3) -> void:
 		world.call("spawn_loot", part, pos)
 	else:
 		spawn_loot(world, part, pos)
+
+
+static func watch_machine(world: Node, machine: Node, wreck_on_death: bool = false) -> void:
+	if world == null or machine == null:
+		return
+	if machine.has_meta("loot_watched"):
+		return
+	machine.set_meta("loot_watched", true)
+	if wreck_on_death and machine.has_signal("died"):
+		machine.connect("died", func(pos: Vector3) -> void:
+			if is_instance_valid(world):
+				_on_machine_died(world, pos)
+		)
+	if machine.has_signal("component_dropped"):
+		machine.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
+			if is_instance_valid(world):
+				emit_loot(world, part, pos)
+		)
 
 
 static func update_raid_objective(world: Node3D) -> void:
@@ -182,6 +204,7 @@ static func _setup_existing(world: Node3D) -> void:
 		if light.has_method("apply_loadout"):
 			light.call("apply_loadout")
 		_nameplate(light, "PARKED LIGHT — bolt a gun", Vector3(0, 5.4, 0), Color(0.9, 0.55, 0.2))
+		watch_machine(world, light)
 	if world.has_node("HeavyMech"):
 		var heavy: Node = world.get_node("HeavyMech")
 		var points: Array[Vector3] = []
@@ -203,14 +226,7 @@ static func _setup_existing(world: Node3D) -> void:
 		else:
 			heavy.set("ai_controlled", RunState.deploy_scale != "heavy")
 			_nameplate(heavy, "OCCUPANCY WALKER — First Voice coat", Vector3(0, 8.4, 0), Color(0.45, 1.0, 0.4))
-		if heavy.has_signal("died") and not bool(profile.get("pre_kill_walker", false)):
-			heavy.connect("died", func(pos: Vector3) -> void:
-				_on_machine_died(world, pos)
-			)
-		if heavy.has_signal("component_dropped"):
-			heavy.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-				emit_loot(world, part, pos)
-			)
+		watch_machine(world, heavy, not bool(profile.get("pre_kill_walker", false)))
 		_attach_climb(heavy)
 		_attach_core(heavy)
 	if world.has_node("Wreck"):
@@ -243,10 +259,7 @@ static func _setup_ash_yard(world: Node3D) -> void:
 	elif RunState.raid_mode == "scav_wave":
 		med_label = "KNEELING HELIX — scav wave meat"
 	_nameplate(med, med_label, Vector3(0, 6.2, 0), Color(0.85, 0.7, 0.35))
-	if med.has_signal("component_dropped"):
-		med.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-			emit_loot(world, part, pos)
-		)
+	watch_machine(world, med)
 	_attach_core(med)
 	var wreck_n := int(profile.get("extra_wrecks", 0))
 	if wreck_n >= 1:
@@ -265,10 +278,7 @@ static func _spawn_extra_wreck(world: Node3D, node_name: String, pos: Vector3, p
 	m2.set("alive", false)
 	m2.set("hull", 0.0)
 	_nameplate(m2, label, Vector3(0, 6.2, 0), Color(0.85, 0.55, 0.3))
-	if m2.has_signal("component_dropped"):
-		m2.connect("component_dropped", func(part: Dictionary, drop_pos: Vector3) -> void:
-			emit_loot(world, part, drop_pos)
-		)
+	watch_machine(world, m2)
 	_attach_core(m2)
 
 
@@ -284,10 +294,7 @@ static func _setup_pipeline(world: Node3D) -> void:
 	med.set("disabled", true)
 	med.set("alive", false)
 	med.set("hull", 0.0)
-	if med.has_signal("component_dropped"):
-		med.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-			emit_loot(world, part, pos)
-		)
+	watch_machine(world, med)
 	var hv: Node3D = HEAVY_SCENE.instantiate()
 	hv.position = Vector3(18, 0, -10)
 	world.add_child(hv)
@@ -306,14 +313,7 @@ static func _setup_pipeline(world: Node3D) -> void:
 		_nameplate(hv, "SPINE WALKER — First Voice coat", Vector3(0, 8.4, 0), Color(0.45, 1.0, 0.4))
 	var pts: Array[Vector3] = [Vector3(18, 0, -10), Vector3(-16, 0, 12)]
 	hv.call("set_patrol", pts)
-	if hv.has_signal("died") and not bool(profile.get("pre_kill_walker", false)):
-		hv.connect("died", func(pos: Vector3) -> void:
-			_on_machine_died(world, pos)
-		)
-	if hv.has_signal("component_dropped"):
-		hv.connect("component_dropped", func(part: Dictionary, pos: Vector3) -> void:
-			emit_loot(world, part, pos)
-		)
+	watch_machine(world, hv, not bool(profile.get("pre_kill_walker", false)))
 	_attach_core(med)
 	_attach_climb(hv)
 	_attach_core(hv)
@@ -374,6 +374,7 @@ static func _spawn_events(world: Node3D, map_id: String) -> void:
 			if extra.has_method("set_patrol"):
 				extra.call("set_patrol", [Vector3(-30, 0, -24), Vector3(-10, 0, 20)])
 			_nameplate(extra, "INBOUND WALKER", Vector3(0, 8.4, 0), Color(0.95, 0.35, 0.2))
+			watch_machine(world, extra, true)
 		)
 
 
@@ -483,11 +484,13 @@ static func _deploy_player(world: Node3D, map_id: String) -> void:
 			if light.has_method("apply_power_armor_frame"):
 				light.call("apply_power_armor_frame")
 			light.call("board_pilot", scav)
+			watch_machine(world, light)
 	elif RunState.deploy_scale == "medium":
 		var med: Node3D = MEDIUM_SCENE.instantiate()
 		med.position = scav.position + Vector3(4, 0, 0)
 		world.add_child(med)
 		med.call("board_pilot", scav)
+		watch_machine(world, med, true)
 	elif RunState.deploy_scale == "heavy":
 		var heavy: Node = world.get_node_or_null("HeavyMech")
 		if heavy == null:
@@ -497,11 +500,13 @@ static func _deploy_player(world: Node3D, map_id: String) -> void:
 		heavy.set("ai_controlled", false)
 		heavy.set("disabled", false)
 		heavy.call("board_pilot", scav)
+		watch_machine(world, heavy, true)
 	elif RunState.deploy_scale == "vehicle":
 		var h: Node3D = HAULER_SCENE.instantiate()
 		h.position = scav.position + Vector3(5, 0, 0)
 		world.add_child(h)
 		h.call("board_pilot", scav)
+		watch_machine(world, h, true)
 
 
 static func _net_spawns(world: Node3D) -> void:
@@ -594,6 +599,7 @@ static func _spawn_tax(world: Node3D, map_id: String) -> void:
 	world.add_child(gate)
 	gate.set("hull_max", 90.0)
 	gate.set("hull", 90.0)
+	watch_machine(world, gate)
 	pad.set("tax_gate", gate)
 	_nameplate(gate, "BRASK COURT — extract-tax", Vector3(0, 4.2, 0), Color(0.85, 0.28, 0.18))
 	if RunState.faction == "warlord":

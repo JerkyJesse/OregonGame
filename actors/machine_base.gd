@@ -43,6 +43,9 @@ var _alert_timer: float = 0.0
 var _coat_radioed: bool = false
 var core_taken: bool = false
 var _base_hull: float = 160.0
+var _section_max: Dictionary = {}
+var _broken: Dictionary = {}
+var _crit_fx: Dictionary = {}
 
 var _camera: Camera3D
 var _ray: RayCast3D
@@ -144,6 +147,8 @@ func _init_sections() -> void:
 		"sensors": 50.0,
 		"utility": 60.0,
 	}
+	_section_max = section_hp.duplicate()
+	_broken.clear()
 
 
 func _copy_hangar_loadout() -> void:
@@ -211,7 +216,6 @@ func apply_loadout() -> void:
 		var broken := float(section_hp.get(slot, 100.0)) <= 0.0
 		var filled := part is Dictionary and not (part as Dictionary).is_empty()
 		_rebuild_kit(slot, part if filled else {}, broken)
-	_apply_limb_visuals()
 	for child in get_children():
 		if child is MeshInstance3D and str(child.name) in ["Torso", "Head", "ArmL", "ArmR", "LegL", "LegR", "Cab", "Bed"]:
 			if hangar_preview or boarded or not disabled:
@@ -224,6 +228,7 @@ func apply_loadout() -> void:
 					_tint(sub, paint.darkened(0.08), false)
 				if sub is MeshInstance3D and str(sub.name) == "Visor":
 					_tint(sub, Color(0.85, 0.12, 0.06), false)
+	_apply_limb_visuals()
 
 
 func _plating_bonus() -> float:
@@ -366,20 +371,68 @@ func _apply_limb_visuals() -> void:
 	_set_named_visible("ArmR", ar)
 	_set_named_visible("LegL", legs)
 	_set_named_visible("LegR", legs)
+	_scorch_named("ArmL", "arm_l")
+	_scorch_named("ArmR", "arm_r")
+	_scorch_named("LegL", "legs")
+	_scorch_named("LegR", "legs")
+	_scorch_named("Torso", "chest")
+	_scorch_named("Head", "sensors")
+	_scorch_named("Cab", "chest")
+	_scorch_named("Bed", "utility")
+	_tick_crit_fx("arm_l")
+	_tick_crit_fx("arm_r")
+	_tick_crit_fx("legs")
+	_tick_crit_fx("chest")
+	_tick_crit_fx("reactor")
+
+
+func _mesh_by_name(n: String) -> MeshInstance3D:
+	var node := get_node_or_null(n)
+	if node is MeshInstance3D:
+		return node as MeshInstance3D
 	var body := get_node_or_null("Body")
 	if body:
-		var bl := body.get_node_or_null("ArmL")
-		if bl is MeshInstance3D:
-			(bl as MeshInstance3D).visible = al
-		var br := body.get_node_or_null("ArmR")
-		if br is MeshInstance3D:
-			(br as MeshInstance3D).visible = ar
+		var nested := body.get_node_or_null(n)
+		if nested is MeshInstance3D:
+			return nested as MeshInstance3D
+	return null
 
 
 func _set_named_visible(n: String, on: bool) -> void:
-	var node := get_node_or_null(n)
-	if node is MeshInstance3D:
-		(node as MeshInstance3D).visible = on
+	var mesh := _mesh_by_name(n)
+	if mesh:
+		mesh.visible = on
+
+
+func _scorch_named(n: String, slot: String) -> void:
+	var mesh := _mesh_by_name(n)
+	if mesh == null or not mesh.visible:
+		return
+	var hp := float(section_hp.get(slot, 100.0))
+	var mx := float(_section_max.get(slot, 100.0))
+	var ratio := hp / maxf(mx, 1.0)
+	if ratio >= 0.55:
+		return
+	var paint := RunState.paint_color().darkened(0.08)
+	if ratio < 0.25:
+		_tint(mesh, Color(0.52, 0.1, 0.04), false)
+	else:
+		_tint(mesh, paint.darkened(0.28).lerp(Color(0.72, 0.22, 0.06), 0.45), false)
+
+
+func _tick_crit_fx(slot: String) -> void:
+	var hp := float(section_hp.get(slot, 100.0))
+	var mx := float(_section_max.get(slot, 100.0))
+	var ratio := hp / maxf(mx, 1.0)
+	if ratio <= 0.0 or ratio > 0.28:
+		if _crit_fx.has(slot) and is_instance_valid(_crit_fx[slot]):
+			(_crit_fx[slot] as Node).queue_free()
+		_crit_fx.erase(slot)
+		return
+	if _crit_fx.has(slot) and is_instance_valid(_crit_fx[slot]):
+		return
+	var local := to_local(slot_world_pos(slot))
+	_crit_fx[slot] = LOOK.sparkle(self, local, Color(1.0, 0.32, 0.08), 0.28)
 
 
 func get_interact_label() -> String:
@@ -535,6 +588,7 @@ func dismount() -> void:
 	Hud.set_prompt("")
 	Hud.set_heat(-1.0)
 	Hud.set_sensors("")
+	Hud.set_sections("")
 
 
 func _set_self_hidden(hide: bool) -> void:
@@ -727,11 +781,12 @@ func _hitscan(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
 	query.collision_mask = 7
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	var end := to
+	var slot_hint := _slot_hint_ray(from, to)
 	if hit:
 		end = hit.position
 		var col: Object = hit.collider
 		if col is Node:
-			_apply_hit(col as Node, dmg, hit.position)
+			_apply_hit(col as Node, dmg, hit.position, slot_hint)
 	var muzzle := from
 	if _camera and _camera.is_inside_tree():
 		muzzle = from + (-_camera.global_transform.basis.z) * 1.4
@@ -752,14 +807,33 @@ func _tracer_color(kind: String) -> Color:
 			return Color(1.0, 0.72, 0.18)
 
 
-func _apply_hit(node: Node, dmg: float, point: Vector3) -> void:
+func _slot_hint_ray(from: Vector3, to: Vector3) -> String:
+	if not is_inside_tree() or get_world_3d() == null or get_world_3d().direct_space_state == null:
+		return ""
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.exclude = [get_rid()]
+	query.collision_mask = 8
+	query.collide_with_areas = true
+	query.collide_with_bodies = false
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit and hit.collider is SlotHotspot:
+		return str((hit.collider as SlotHotspot).slot)
+	return ""
+
+
+func _apply_hit(node: Node, dmg: float, point: Vector3, slot_hint: String = "") -> void:
 	var cur := node
 	while cur:
-		if cur.has_method("take_damage"):
-			if cur.has_method("take_section_damage"):
-				cur.call("take_section_damage", dmg, point)
+		if cur is SlotHotspot and slot_hint == "":
+			slot_hint = str((cur as SlotHotspot).slot)
+		if cur.has_method("take_section_damage"):
+			if slot_hint != "":
+				cur.call("take_section_damage", dmg, point, slot_hint)
 			else:
-				cur.call("take_damage", dmg)
+				cur.call("take_section_damage", dmg, point)
+			return
+		if cur.has_method("take_damage"):
+			cur.call("take_damage", dmg)
 			return
 		cur = cur.get_parent()
 
@@ -773,37 +847,114 @@ func _rpc_shot(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
 	_hitscan(from, to, dmg, kind)
 
 
-func take_section_damage(amount: float, point: Vector3) -> void:
+func section_at_point(point: Vector3) -> String:
+	var local := to_local(point)
+	if local.y < cockpit_height * 0.45:
+		return "legs"
+	if local.x < -0.9:
+		return "arm_l"
+	if local.x > 0.9:
+		return "arm_r"
+	if local.z < -0.6:
+		return "reactor"
+	if local.y > cockpit_height * 0.92:
+		return "sensors"
+	if local.z > 0.85 and local.y < cockpit_height * 0.58:
+		return "utility"
+	return "chest"
+
+
+func slot_world_pos(slot: String) -> Vector3:
+	var root := get_node_or_null("Hardpoints")
+	if root:
+		var marker := root.get_node_or_null(slot)
+		if marker is Node3D:
+			return (marker as Node3D).global_position
+	return global_position + Vector3(0, cockpit_height * 0.65, 0)
+
+
+func section_readout() -> String:
+	var bits: PackedStringArray = PackedStringArray()
+	var names := {
+		"chest": "C", "arm_l": "L", "arm_r": "R", "legs": "LEG",
+		"reactor": "RCT", "sensors": "SNS", "utility": "UTL",
+	}
+	for slot in RunState.SLOTS:
+		var hp := maxf(float(section_hp.get(slot, 0.0)), 0.0)
+		var tag := str(names.get(slot, slot))
+		if hp <= 0.0:
+			bits.append("%s--" % tag)
+		else:
+			bits.append("%s%d" % [tag, int(round(hp))])
+	return "SEC  " + " ".join(bits)
+
+
+func take_section_damage(amount: float, point: Vector3, slot_hint: String = "") -> void:
+	if hangar_preview or not alive:
+		return
+	var slot := slot_hint if slot_hint != "" and section_hp.has(slot_hint) else section_at_point(point)
+	if not section_hp.has(slot):
+		slot = "chest"
+	var before := float(section_hp.get(slot, 100.0))
+	section_hp[slot] = before - amount * 0.65
+	take_damage(amount * 0.55)
 	if not alive:
 		return
-	var local := to_local(point)
-	var slot := "chest"
-	if local.y < cockpit_height * 0.45:
-		slot = "legs"
-	elif local.x < -0.9:
-		slot = "arm_l"
-	elif local.x > 0.9:
-		slot = "arm_r"
-	elif local.z < -0.6:
-		slot = "reactor"
-	elif local.y > cockpit_height * 0.92:
-		slot = "sensors"
-	section_hp[slot] = float(section_hp.get(slot, 100.0)) - amount * 0.65
-	take_damage(amount * 0.55)
-	if float(section_hp[slot]) <= 0.0:
+	_apply_limb_visuals()
+	var hp_now := float(section_hp.get(slot, 0.0))
+	Fx.float_text(point, WorldLore.section_abbrev(slot), Color(1.0, 0.55, 0.18) if hp_now > 0.0 else Color(1.0, 0.28, 0.1))
+	if boarded:
+		Hud.set_sections(section_readout())
+	else:
+		Hud.set_sections(WorldLore.hit_section_line(scale_id, slot, hp_now))
+	if hp_now <= 0.0 and before > 0.0:
 		_break_section(slot)
 
 
-func _break_section(slot: String) -> void:
+func _break_section(slot: String, announce: bool = true) -> void:
+	if bool(_broken.get(slot, false)):
+		return
+	_broken[slot] = true
 	section_hp[slot] = 0.0
+	var pop_at := slot_world_pos(slot)
+	_spawn_limb_debris(slot)
+	if _crit_fx.has(slot) and is_instance_valid(_crit_fx[slot]):
+		(_crit_fx[slot] as Node).queue_free()
+	_crit_fx.erase(slot)
 	var part: Variant = equipped.get(slot, {})
 	if part is Dictionary and not (part as Dictionary).is_empty():
 		var drop: Dictionary = (part as Dictionary).duplicate(true)
 		drop["condition"] = clampf(float(drop.get("condition", 1.0)) * randf_range(0.35, 0.7), 0.08, 0.8)
+		drop["torn_off"] = true
+		drop["torn_slot"] = slot
 		equipped[slot] = {}
-		component_dropped.emit(drop, global_position + Vector3(randf_range(-2, 2), 1.2, randf_range(-2, 2)))
-		Hud.show_banner("%s torn off." % drop.get("display_name", slot))
+		component_dropped.emit(drop, pop_at + Vector3(randf_range(-0.4, 0.4), 0.2, randf_range(-0.4, 0.4)))
+		if announce:
+			Hud.show_banner(WorldLore.torn_off_banner(str(drop.get("display_name", slot)), slot, bool(drop.get("is_weapon", false))))
+			Fx.float_text(pop_at + Vector3(0, 1.1, 0), "%s TORN" % str(drop.get("display_name", slot)).to_upper(), Color(1.0, 0.62, 0.2))
+	elif announce:
+		Hud.show_banner("%s wrecked." % WorldLore.section_abbrev(slot))
+		Fx.float_text(pop_at + Vector3(0, 0.8, 0), "%s GONE" % WorldLore.section_abbrev(slot), Color(0.95, 0.4, 0.15))
+	Fx.burst(pop_at, Color(1.0, 0.45, 0.12))
+	Fx.play("stomp" if scale_id == "heavy" else "melee")
 	apply_loadout()
+
+
+func _spawn_limb_debris(slot: String) -> void:
+	var names: PackedStringArray = PackedStringArray()
+	match slot:
+		"arm_l":
+			names = PackedStringArray(["ArmL"])
+		"arm_r":
+			names = PackedStringArray(["ArmR"])
+		"legs":
+			names = PackedStringArray(["LegL", "LegR"])
+		_:
+			return
+	for n in names:
+		var mesh := _mesh_by_name(n)
+		if mesh and mesh.visible:
+			Fx.falling_chunk(mesh)
 
 
 func take_damage(amount: float) -> void:
@@ -834,8 +985,7 @@ func _die() -> void:
 		dismount()
 	var pos := global_position
 	for slot in RunState.SLOTS:
-		if float(section_hp.get(slot, 0.0)) > 0.0:
-			_break_section(slot)
+		_break_section(slot, false)
 	died.emit(pos)
 	if scale_id == "heavy" or scale_id == "medium":
 		Fx.play("stomp")
@@ -1015,6 +1165,7 @@ func _update_cockpit_hud() -> void:
 	if _shield_max() > 0.0:
 		sh = "  SHD %d" % int(shield_hp)
 	Hud.set_prompt("%s  %s   HEAT %.0f  WT %.0f%s   [F] dismount" % [scale_id.to_upper(), wname, heat, w, sh])
+	Hud.set_sections(section_readout())
 	if has_sensors():
 		Hud.set_sensors(_sensor_text())
 	else:
