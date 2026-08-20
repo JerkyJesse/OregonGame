@@ -53,11 +53,23 @@ func _ready() -> void:
 
 
 func _lights() -> void:
+	var tier := clampi(RunState.hangar_tier, 1, 3)
 	if has_node("BayLight"):
 		($BayLight as OmniLight3D).light_color = Color(1.0, 0.55, 0.22)
-		($BayLight as OmniLight3D).light_energy = 7.5
+		($BayLight as OmniLight3D).light_energy = 5.5 + float(tier) * 1.6
+		($BayLight as OmniLight3D).omni_range = 22.0 + float(tier) * 4.0
 	if has_node("Sun"):
 		($Sun as DirectionalLight3D).light_color = Color(1.0, 0.78, 0.55)
+		($Sun as DirectionalLight3D).light_energy = 0.85 + float(tier) * 0.12
+	var plaque := Label3D.new()
+	plaque.text = WorldLore.hangar_tier_plaque(tier)
+	plaque.position = Vector3(-8, 4.2, 12)
+	plaque.font_size = 48
+	plaque.modulate = Color(0.95, 0.62, 0.22)
+	plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	plaque.outline_size = 8
+	plaque.outline_modulate = Color(0, 0, 0, 0.85)
+	add_child(plaque)
 
 
 func _park_frames() -> void:

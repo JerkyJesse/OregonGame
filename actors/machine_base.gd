@@ -38,6 +38,9 @@ var section_hp: Dictionary = {}
 var alive: bool = true
 var towing: Node3D
 var _ai_fire: float = 0.0
+var _alert_pos: Vector3 = Vector3.ZERO
+var _alert_timer: float = 0.0
+var _coat_radioed: bool = false
 var core_taken: bool = false
 var _base_hull: float = 160.0
 
@@ -845,29 +848,48 @@ func _die() -> void:
 func _ai_move(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= gravity * delta
+	_alert_timer = maxf(_alert_timer - delta, 0.0)
+	if _alert_timer <= 0.0:
+		_alert_pos = Vector3.ZERO
 	var target := _ai_target()
-	if patrol.size() >= 2 and (target == Vector3.ZERO or global_position.distance_to(target) > 36.0):
-		var p: Vector3 = patrol[_patrol_i]
-		var offset := Vector3(p.x - global_position.x, 0.0, p.z - global_position.z)
-		if offset.length() < 3.0:
-			_patrol_i = (_patrol_i + 1) % patrol.size()
-		else:
-			_look_flat(offset)
-			velocity.x = offset.normalized().x * move_speed
-			velocity.z = offset.normalized().z * move_speed
-	elif target != Vector3.ZERO:
+	if target != Vector3.ZERO:
+		_coat_notice(target)
 		var offset := Vector3(target.x - global_position.x, 0.0, target.z - global_position.z)
-		if offset.length() > 6.0:
+		var hold := 8.0 if scale_id == "heavy" else 5.5
+		if offset.length() > hold:
 			_look_flat(offset)
-			velocity.x = offset.normalized().x * move_speed
-			velocity.z = offset.normalized().z * move_speed
+			var spd := move_speed * (1.15 if _alert_timer > 0.0 else 0.85)
+			velocity.x = offset.normalized().x * spd
+			velocity.z = offset.normalized().z * spd
 		else:
 			velocity.x = 0.0
 			velocity.z = 0.0
+			_look_flat(offset)
 		_ai_fire -= delta
-		if _ai_fire <= 0.0 and offset.length() < 28.0:
-			_ai_fire = 0.35
+		if _ai_fire <= 0.0 and offset.length() < 32.0 and _ai_has_los(target):
+			_ai_fire = 0.55 if scale_id == "heavy" else 0.38
 			_ai_shoot(target)
+	elif _alert_pos != Vector3.ZERO:
+		var offset := Vector3(_alert_pos.x - global_position.x, 0.0, _alert_pos.z - global_position.z)
+		if offset.length() > 4.0:
+			_look_flat(offset)
+			velocity.x = offset.normalized().x * move_speed * 0.95
+			velocity.z = offset.normalized().z * move_speed * 0.95
+		else:
+			velocity.x = 0.0
+			velocity.z = 0.0
+			_alert_pos = Vector3.ZERO
+	elif patrol.size() >= 2:
+		var p: Vector3 = patrol[_patrol_i]
+		var offset := Vector3(p.x - global_position.x, 0.0, p.z - global_position.z)
+		if offset.length() < 3.5:
+			_patrol_i = (_patrol_i + 1) % patrol.size()
+			velocity.x = 0.0
+			velocity.z = 0.0
+		else:
+			_look_flat(offset)
+			velocity.x = offset.normalized().x * move_speed * 0.72
+			velocity.z = offset.normalized().z * move_speed * 0.72
 	else:
 		velocity.x = 0.0
 		velocity.z = 0.0
@@ -883,16 +905,51 @@ func _look_flat(offset: Vector3) -> void:
 	rotation.z = 0.0
 
 
+func _ai_detect_range() -> float:
+	if _alert_timer > 0.0 or RunState.heavy_engaged:
+		return 38.0 if scale_id == "heavy" else 30.0
+	return 22.0 if scale_id == "heavy" else 18.0
+
+
 func _ai_target() -> Vector3:
 	var best := Vector3.ZERO
-	var best_d := 9999.0
+	var best_d := _ai_detect_range()
+	for n in get_tree().get_nodes_in_group("scavenger"):
+		if not (n is Scavenger):
+			continue
+		var scav := n as Scavenger
+		if scav.boarded:
+			continue
+		var d := global_position.distance_to(scav.global_position)
+		if d < best_d and _ai_has_los(scav.global_position):
+			best_d = d
+			best = scav.global_position
+	if best != Vector3.ZERO:
+		return best
 	for n in get_tree().get_nodes_in_group("player"):
-		if n is Node3D and n != self:
-			var d := global_position.distance_to((n as Node3D).global_position)
-			if d < best_d:
-				best_d = d
-				best = (n as Node3D).global_position
+		if n == self or not (n is Node3D) or not n.is_in_group("machine"):
+			continue
+		if not bool(n.get("boarded")):
+			continue
+		var d := global_position.distance_to((n as Node3D).global_position)
+		if d < best_d and _ai_has_los((n as Node3D).global_position):
+			best_d = d
+			best = (n as Node3D).global_position
 	return best
+
+
+func _ai_has_los(target: Vector3) -> bool:
+	if get_world_3d() == null:
+		return false
+	var space := get_world_3d().direct_space_state
+	if space == null:
+		return false
+	var from := global_position + Vector3(0, cockpit_height * 0.55, 0)
+	var to := target + Vector3(0, 1.2, 0)
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.exclude = [get_rid()]
+	query.collision_mask = 1
+	return space.intersect_ray(query).is_empty()
 
 
 func _ai_shoot(target: Vector3) -> void:
@@ -901,12 +958,29 @@ func _ai_shoot(target: Vector3) -> void:
 	_hitscan(from, to, 18.0 if scale_id != "heavy" else 34.0, "ballistic")
 
 
+func _coat_notice(target: Vector3) -> void:
+	_alert_pos = target
+	_alert_timer = maxf(_alert_timer, 10.0)
+	RunState.heavy_engaged = true
+	if _coat_radioed or scale_id != "heavy":
+		return
+	_coat_radioed = true
+	Hud.show_banner(WorldLore.coat_notice_banner())
+	if get_tree():
+		get_tree().call_group("yard_band", "push", WorldLore.coat_band())
+
+
 func alert_to(pos: Vector3) -> void:
+	_alert_pos = pos
+	_alert_timer = 16.0
+	RunState.heavy_engaged = true
 	if patrol.size() < 2:
 		patrol = [pos, global_position] as Array[Vector3]
-	else:
-		patrol[_patrol_i] = pos
-	RunState.heavy_engaged = true
+	if scale_id == "heavy" and not _coat_radioed:
+		_coat_radioed = true
+		Hud.show_banner(WorldLore.coat_alert_banner())
+		if get_tree():
+			get_tree().call_group("yard_band", "push", WorldLore.coat_band())
 
 
 func _try_tow() -> void:

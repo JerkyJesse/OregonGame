@@ -264,6 +264,7 @@ static func _spawn_events(world: Node3D, map_id: String) -> void:
 		var drop := world.get_node_or_null("FilterDrop")
 		if drop:
 			_nameplate(drop, "SEALED-AIR CAN  [E] then [R] swap", Vector3(0, 1.6, 0), Color(0.55, 0.95, 0.45))
+	_spawn_pocket_filters(world, map_id)
 	if map_id != "pipeline":
 		world.get_tree().create_timer(90.0).timeout.connect(func() -> void:
 			if not is_instance_valid(world) or not RunState.in_raid:
@@ -278,6 +279,23 @@ static func _spawn_events(world: Node3D, map_id: String) -> void:
 				extra.call("set_patrol", [Vector3(-30, 0, -24), Vector3(-10, 0, 20)])
 			_nameplate(extra, "INBOUND WALKER", Vector3(0, 8.4, 0), Color(0.95, 0.35, 0.2))
 		)
+
+
+static func _spawn_pocket_filters(world: Node3D, map_id: String) -> void:
+	var spots: Array[Vector3] = []
+	if map_id == "pipeline":
+		spots = [Vector3(-21, 0, -15.5), Vector3(19.5, 0, 20.5)]
+	else:
+		spots = [Vector3(-18.5, 0, 24.2), Vector3(24.5, 0, -17.5)]
+	for i in spots.size():
+		var part := RunState.make_part("filter_canister", randf_range(0.65, 0.9))
+		if part.is_empty():
+			continue
+		var name := "PocketFilter_%d" % i
+		spawn_loot(world, part, spots[i], name)
+		var drop := world.get_node_or_null(name)
+		if drop:
+			_nameplate(drop, "POCKET FILTER  [E] then [R]", Vector3(0, 1.5, 0), Color(0.5, 0.95, 0.4))
 
 
 static func _breakable(world: Node3D, pos: Vector3, size: Vector3) -> void:

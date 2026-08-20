@@ -86,9 +86,12 @@ func _process(delta: float) -> void:
 			continue
 		local_foot = true
 		foot_dist = Vector2(scav.global_position.x, scav.global_position.z).length()
-		var in_bloom := foot_dist > radius
-		var cause := RunState.tick_filter(delta, false, in_bloom)
+		var sealed := _in_sealed(scav)
+		var in_bloom := foot_dist > radius and not sealed
+		var cause := RunState.tick_filter(delta, sealed, in_bloom)
 		Hud.set_lungs(RunState.filter, radius, foot_dist)
+		if sealed and _warn <= 0.0 and RunState.raid_timer > 2.0:
+			Hud.set_sensors(WorldLore.sealed_pocket_hint())
 		if cause != "":
 			var dps := 16.0 if cause == "bloom" else 4.0
 			scav.take_damage(dps * delta, cause)
@@ -98,7 +101,7 @@ func _process(delta: float) -> void:
 		elif in_bloom and _warn <= 0.0:
 			Hud.show_banner(WorldLore.storm_banner())
 			_warn = 2.8
-		if RunState.filter < 18.0 and _filter_warn <= 0.0 and not RunState.bloom_native():
+		if RunState.filter < 18.0 and _filter_warn <= 0.0 and not RunState.bloom_native() and not sealed:
 			Hud.show_banner(WorldLore.filter_critical_banner())
 			_filter_warn = 8.0
 	if local_foot:
@@ -109,6 +112,15 @@ func _process(delta: float) -> void:
 			var d := Vector2(p.global_position.x, p.global_position.z).length()
 			if d > radius and not RunState.bloom_native():
 				n.call("take_damage", 6.0 * delta)
+
+
+func _in_sealed(body: Node3D) -> bool:
+	for n in get_tree().get_nodes_in_group("sealed_steel"):
+		if n is Area3D and n.has_method("covers") and bool(n.call("covers", body)):
+			return true
+		if n is Area3D and (n as Area3D).overlaps_body(body):
+			return true
+	return false
 
 
 func current_radius() -> float:

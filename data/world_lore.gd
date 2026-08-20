@@ -138,7 +138,13 @@ static func range_objective() -> String:
 static func hangar_objective(tier: int) -> String:
 	if RunState.faction == "pale":
 		return "NEW DODGE  BAY TIER %d — Host colony in a stolen can. Bolt parts [E]. Outside, the air is already yours." % tier
-	return "NEW DODGE  BAY TIER %d — last-human hole in the starting city. Bolt parts [E] on frames. Deploy at the console. Range door. Tam’s stall." % tier
+	match clampi(tier, 1, 3):
+		2:
+			return "NEW DODGE  BAY TIER 2 — medium pad + hauler lane open. Bolt parts [E]. Deploy. Range door. Tam’s stall."
+		3:
+			return "NEW DODGE  BAY TIER 3 — heavy crane live. Bolt parts [E]. Deploy. Range door. Tam’s stall."
+		_:
+			return "NEW DODGE  BAY TIER 1 — scav bay. Bolt parts [E] on frames. Deploy at the console. Range door. Tam’s stall."
 
 
 static func raid_objective(map_id: String, mode: String) -> String:
@@ -202,6 +208,32 @@ static func vendor_blurb() -> String:
 
 static func crush_warning() -> String:
 	return "HEAVY STOMP — underfoot. Sprint or crawl into cover."
+
+
+static func coat_notice_banner() -> String:
+	return "OCCUPANCY COAT — walker saw movement. Stay under wreckage."
+
+
+static func coat_alert_banner() -> String:
+	return "FIRST VOICE — coat investigating the noise."
+
+
+static func coat_band() -> String:
+	return "BAND — Walker coat walking the spine. Not a turret. Don't stand in the open."
+
+
+static func sealed_pocket_hint() -> String:
+	return "SEALED STEEL — filter holding. Bloom can't see you here."
+
+
+static func hangar_tier_plaque(tier: int) -> String:
+	match clampi(tier, 1, 3):
+		2:
+			return "NEW DODGE  ·  TIER 2  ·  MEDIUM PAD LIVE"
+		3:
+			return "NEW DODGE  ·  TIER 3  ·  HEAVY CRANE LIVE"
+		_:
+			return "NEW DODGE  ·  TIER 1  ·  SCAV BAY"
 
 
 static func climb_stage_label(stage: int) -> String:
