@@ -70,10 +70,11 @@ func _dress_glow() -> void:
 		torn.name = "TornTag"
 		torn.text = "TORN OFF\n%s" % str(part.get("display_name", "PART")).to_upper()
 		torn.position = Vector3(0, 1.2, 0)
-		torn.font_size = 26
+		torn.font_size = 22
 		torn.modulate = Color(1.0, 0.78, 0.32)
 		torn.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		torn.outline_size = 6
+		torn.outline_size = 5
+		torn.pixel_size = 0.012
 		torn.outline_modulate = Color(0, 0, 0, 0.9)
 		add_child(torn)
 	if has_node("Glow"):

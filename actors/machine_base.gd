@@ -758,6 +758,7 @@ func _try_fire() -> void:
 	var kind := str(weapon.get("weapon_kind", "ballistic"))
 	_fire_cd = 0.09 if kind == "ballistic" else (0.55 if kind == "missile" else (0.22 if kind == "energy" else 0.4))
 	heat += float(weapon.get("heat_gen", 8.0))
+	heat = minf(heat, HEAT_MAX)
 	var dmg := float(weapon.get("damage", 24.0)) * lerpf(0.4, 1.0, float(weapon.get("condition", 1.0)))
 	if kind == "melee":
 		dmg *= 1.6
@@ -929,8 +930,27 @@ func _loot_drop_pos(slot: String) -> Vector3:
 		outward.y = 0.0
 	if outward.length() < 0.4:
 		outward = global_transform.basis.z
-	var reach := 4.2 if scale_id == "heavy" else 3.2
-	return global_position + outward.normalized() * reach + Vector3(0, 1.15, 0)
+	var right := outward.cross(Vector3.UP)
+	if right.length() < 0.2:
+		right = global_transform.basis.x
+	right = right.normalized()
+	var side := 0.0
+	match slot:
+		"arm_l":
+			side = -1.6
+		"arm_r":
+			side = 1.6
+		"legs":
+			side = -0.9
+		"sensors":
+			side = 0.7
+		"chest":
+			side = 0.0
+		"reactor":
+			side = -0.5
+		_:
+			side = 1.1
+	return global_position + outward.normalized() * reach + right * side + Vector3(0, 1.15, 0)
 
 
 func _overflow_damage(from_slot: String, amount: float, point: Vector3) -> void:
