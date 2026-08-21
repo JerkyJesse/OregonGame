@@ -7,6 +7,8 @@ const LOOK := preload("res://world/WorldLook.gd")
 
 var looted: bool = false
 var remaining: Array[String] = []
+var _grant_peer: int = 0
+var _grant_id: String = ""
 
 @onready var _loot_mesh: MeshInstance3D = get_node_or_null("LootGlow")
 
@@ -49,10 +51,15 @@ func _host_give(peer_id: int) -> void:
 	if remaining.is_empty():
 		rpc_sync_wreck.rpc(_remaining_payload(), looted)
 		return
+	if _grant_peer != 0:
+		return
+	if peer_id <= 0:
+		return
 	var id := remaining[0]
 	remaining.remove_at(0)
 	var part := RunState.make_part(id, randf_range(0.45, 0.92))
 	if part.is_empty():
+		remaining.insert(0, id)
 		return
 	if peer_id == NetSession.local_id():
 		if not RunState.add_carry(part):
@@ -62,14 +69,15 @@ func _host_give(peer_id: int) -> void:
 		Hud.refresh_carry()
 		Hud.show_banner("Picked up %s" % part.get("display_name", "part"))
 		Fx.play("ui")
-	else:
-		rpc_grant_part.rpc_id(peer_id, part)
+		if remaining.is_empty():
+			looted = true
+			if _loot_mesh:
+				_loot_mesh.visible = false
+		rpc_sync_wreck.rpc(_remaining_payload(), looted)
 		return
-	if remaining.is_empty():
-		looted = true
-		if _loot_mesh:
-			_loot_mesh.visible = false
-	rpc_sync_wreck.rpc(_remaining_payload(), looted)
+	_grant_peer = peer_id
+	_grant_id = id
+	rpc_grant_part.rpc_id(peer_id, part)
 
 
 func _remaining_payload() -> Array:
@@ -104,6 +112,11 @@ func rpc_grant_part(part: Dictionary) -> void:
 func rpc_wreck_result(ok: bool, id: String) -> void:
 	if not NetSession.is_host():
 		return
+	if multiplayer.get_remote_sender_id() != _grant_peer:
+		return
+	var restored_id := _grant_id if id == "" else id
+	_grant_peer = 0
+	_grant_id = ""
 	if ok:
 		if remaining.is_empty():
 			looted = true
@@ -111,13 +124,12 @@ func rpc_wreck_result(ok: bool, id: String) -> void:
 				_loot_mesh.visible = false
 		rpc_sync_wreck.rpc(_remaining_payload(), looted)
 		return
-	if id != "":
-		remaining.insert(0, id)
+	if restored_id != "":
+		remaining.insert(0, restored_id)
 	looted = false
 	if _loot_mesh:
 		_loot_mesh.visible = true
 	rpc_sync_wreck.rpc(_remaining_payload(), looted)
-
 
 @rpc("authority", "call_remote", "reliable")
 func rpc_sync_wreck(left: Array, is_looted: bool) -> void:
@@ -130,7 +142,7 @@ func rpc_sync_wreck(left: Array, is_looted: bool) -> void:
 
 
 func ai_steal() -> Dictionary:
-	if remaining.is_empty():
+	if remaining.is_empty() or _grant_peer != 0:
 		return {}
 	var id := remaining[0]
 	remaining.remove_at(0)
@@ -138,3 +150,16 @@ func ai_steal() -> Dictionary:
 		_loot_mesh.visible = false
 		looted = true
 	return RunState.make_part(id, randf_range(0.35, 0.8))
+
+
+func clear_pending_grant(peer_id: int) -> void:
+	if _grant_peer != peer_id:
+		return
+	if _grant_id != "":
+		remaining.insert(0, _grant_id)
+		looted = false
+		if _loot_mesh:
+			_loot_mesh.visible = true
+	_grant_peer = 0
+	_grant_id = ""
+	rpc_sync_wreck.rpc(_remaining_payload(), looted)

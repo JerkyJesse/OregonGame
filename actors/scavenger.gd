@@ -149,13 +149,17 @@ func _sync_pose() -> void:
 
 @rpc("any_peer", "unreliable")
 func _rpc_pose(pos: Vector3, yaw: float, pitch: float) -> void:
+	if multiplayer.get_remote_sender_id() != get_multiplayer_authority():
+		return
 	if _local():
+		return
+	if not pos.is_finite() or absf(pos.x) > 5000.0 or absf(pos.y) > 500.0 or absf(pos.z) > 5000.0:
 		return
 	global_position = pos
 	rotation.y = yaw
-	look_pitch = pitch
+	look_pitch = clampf(pitch, -1.4, 1.4)
 	if _camera:
-		_camera.rotation.x = pitch
+		_camera.rotation.x = look_pitch
 
 
 func _update_interact(delta: float) -> void:
@@ -418,6 +422,12 @@ func _scav_hitscan(from: Vector3, to: Vector3) -> void:
 @rpc("any_peer", "reliable")
 func _rpc_scav_shot(from: Vector3, to: Vector3) -> void:
 	if not NetSession.is_host():
+		return
+	if multiplayer.get_remote_sender_id() != get_multiplayer_authority():
+		return
+	if not from.is_finite() or not to.is_finite():
+		return
+	if from.distance_to(to) > 80.0:
 		return
 	_scav_hitscan(from, to)
 

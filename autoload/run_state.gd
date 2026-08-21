@@ -849,24 +849,35 @@ func load_state() -> bool:
 			var part: Variant = old.get(slot, {})
 			if part is Dictionary:
 				loadouts["light"][slot] = _normalize_part(part)
-	credits = int(data.get("credits", credits))
+	credits = clampi(int(data.get("credits", credits)), 0, 9999999)
 	hangar_tier = clampi(int(data.get("hangar_tier", 1)), 1, 3)
-	repair_skill = float(data.get("repair_skill", repair_skill))
-	paint_index = int(data.get("paint_index", 0))
+	repair_skill = clampf(float(data.get("repair_skill", repair_skill)), 0.0, 1.0)
+	paint_index = clampi(int(data.get("paint_index", 0)), 0, PAINTS.size() - 1)
 	var un: Variant = data.get("unlocked_scales", unlocked_scales)
 	if un is Array:
-		unlocked_scales = (un as Array).duplicate()
-	faction = str(data.get("faction", faction))
-	deploy_scale = str(data.get("deploy_scale", deploy_scale))
-	raid_mode = str(data.get("raid_mode", raid_mode))
-	raid_map = str(data.get("raid_map", raid_map))
-	extracts_completed = maxi(int(data.get("extracts_completed", 0)), 0)
+		var cleaned: Array = []
+		for s in un as Array:
+			var sid := str(s)
+			if sid in SCALES and sid not in cleaned:
+				cleaned.append(sid)
+		if cleaned.is_empty():
+			cleaned = ["light", "armor"]
+		unlocked_scales = cleaned
+	var fac := str(data.get("faction", faction))
+	faction = fac if fac in FACTIONS else "scav"
+	var dep := str(data.get("deploy_scale", deploy_scale))
+	deploy_scale = dep if (dep == "scavenger" or dep in SCALES) else "scavenger"
+	var mode := str(data.get("raid_mode", raid_mode))
+	raid_mode = mode if mode in ["combat", "scav_wave", "late_drop"] else "combat"
+	var map := str(data.get("raid_map", raid_map))
+	raid_map = map if map in ["ash_yard", "pipeline"] else "ash_yard"
+	extracts_completed = clampi(int(data.get("extracts_completed", 0)), 0, 999999)
 	var tags: Variant = data.get("last_extract_tags", [])
 	if tags is Array:
 		last_extract_tags = (tags as Array).duplicate()
 	else:
 		last_extract_tags.clear()
-	vendor_rotation = int(data.get("vendor_rotation", 0))
+	vendor_rotation = clampi(int(data.get("vendor_rotation", 0)), 0, 64)
 	var light_empty := true
 	for slot in SLOTS:
 		if not get_equipped(slot, "light").is_empty():

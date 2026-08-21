@@ -127,8 +127,18 @@ func _process(delta: float) -> void:
 
 @rpc("any_peer", "reliable")
 func _rpc_extract() -> void:
-	if NetSession.is_host():
-		Hud.show_banner(WorldLore.extracted_banner())
+	if not NetSession.is_host():
+		return
+	var sid := multiplayer.get_remote_sender_id()
+	if sid == 0:
+		return
+	# Accept only peers that still have a scavenger in-scene — blocks spoofed extract spam.
+	var tree := get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	if not tree.current_scene.has_node("Scavenger_%d" % sid):
+		return
+	Hud.show_banner(WorldLore.extracted_banner())
 
 
 func finish_if_channeling() -> void:
