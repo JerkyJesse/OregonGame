@@ -8,6 +8,8 @@ var extra: Array = []
 var rival_bag: bool = false
 var torn_off: bool = false
 var _spin: float = 0.0
+var _grant_peer: int = 0
+var _grant_snapshot: Dictionary = {}
 
 
 func _ready() -> void:
@@ -124,6 +126,10 @@ func interact(_actor: Node) -> void:
 func _host_give(peer_id: int) -> void:
 	if part.is_empty():
 		return
+	if _grant_peer != 0:
+		return
+	if peer_id <= 0:
+		return
 	var taken: Dictionary = part
 	if peer_id == NetSession.local_id():
 		if not RunState.add_carry(taken):
@@ -141,6 +147,8 @@ func _host_give(peer_id: int) -> void:
 			rpc_taken.rpc()
 			queue_free()
 		return
+	_grant_peer = peer_id
+	_grant_snapshot = taken.duplicate(true)
 	rpc_grant_part.rpc_id(peer_id, taken)
 
 
@@ -148,6 +156,10 @@ func _host_give(peer_id: int) -> void:
 func rpc_loot_result(ok: bool) -> void:
 	if not NetSession.is_host():
 		return
+	if multiplayer.get_remote_sender_id() != _grant_peer:
+		return
+	_grant_peer = 0
+	_grant_snapshot = {}
 	if ok:
 		_pop_next()
 		if part.is_empty():
@@ -183,11 +195,19 @@ func rpc_taken() -> void:
 func ai_steal() -> Dictionary:
 	if part.is_empty():
 		return {}
+	if _grant_peer != 0:
+		return {}
 	var taken: Dictionary = part
 	_pop_next()
 	if part.is_empty():
 		queue_free()
 	return taken
+
+
+func clear_pending_grant(peer_id: int) -> void:
+	if _grant_peer == peer_id:
+		_grant_peer = 0
+		_grant_snapshot = {}
 
 
 func _pop_next() -> void:

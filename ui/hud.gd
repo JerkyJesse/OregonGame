@@ -851,12 +851,13 @@ func open_deploy() -> void:
 	box.add_child(_option(["ash_yard", "pipeline"], RunState.raid_map, _on_map_item, true))
 	_add_label(box, "Faction")
 	box.add_child(_option(RunState.FACTIONS, RunState.faction, _on_faction_item, true))
-	_add_label(box, "Friend join IP (LAN)")
-	var ip := LineEdit.new()
-	ip.name = "JoinIP"
-	ip.text = NetSession.join_ip
-	ip.placeholder_text = "192.168.x.x or 127.0.0.1"
-	box.add_child(ip)
+	_add_label(box, "Friend host address (same network)")
+	var addr := LineEdit.new()
+	addr.name = "JoinAddress"
+	addr.text = ""
+	addr.placeholder_text = "host address (hidden while typing)"
+	addr.secret = true
+	box.add_child(addr)
 	var host := Button.new()
 	host.text = "Host listen-server :%d" % NetSession.PORT
 	host.pressed.connect(_host)
@@ -930,11 +931,11 @@ func _refresh_deploy_briefing() -> void:
 	var net: Label = _deploy.get_node_or_null("M/Root/S/V/NetHint") as Label
 	if net:
 		if NetSession.is_online() and NetSession.is_host():
-			net.text = "Hosting. Friends join %s port %d. Then you press LAUNCH RAID." % [NetSession.lan_ip_text(), NetSession.PORT]
+			net.text = "Hosting on port %d. Friends enter your host address, then you press LAUNCH RAID." % NetSession.PORT
 		elif NetSession.is_online():
-			net.text = "Joined %s. Wait for the host to launch — do not leave this hangar." % NetSession.join_ip
+			net.text = "Joined host. Wait for the host to launch — do not leave this hangar."
 		else:
-			net.text = "Offline solo, or host then share your LAN IP. Same Wi-Fi. Port %d." % NetSession.PORT
+			net.text = "Offline solo, or host then share your host address off-screen. Same network. Port %d." % NetSession.PORT
 
 
 func _pick_scale(s: String) -> void:
@@ -968,7 +969,7 @@ func _pick_faction(f: String) -> void:
 
 func _host() -> void:
 	if NetSession.host_game() == OK:
-		show_banner("Hosting. Friends join %s:%d" % [NetSession.lan_ip_text(), NetSession.PORT])
+		show_banner("Hosting on port %d. Share your host address off-screen." % NetSession.PORT)
 	else:
 		show_banner(NetSession.last_error if NetSession.last_error != "" else "Host failed.")
 	_refresh_deploy_briefing()
@@ -978,16 +979,16 @@ func _join() -> void:
 	_join_async()
 
 
-func _join_ip_text() -> String:
+func _join_address_text() -> String:
 	if _deploy and is_instance_valid(_deploy):
-		var ip: LineEdit = _deploy.get_node_or_null("M/Root/S/V/JoinIP") as LineEdit
-		if ip:
-			return ip.text.strip_edges()
-	return NetSession.join_ip
+		var addr: LineEdit = _deploy.get_node_or_null("M/Root/S/V/JoinAddress") as LineEdit
+		if addr:
+			return addr.text.strip_edges()
+	return ""
 
 
 func _join_async() -> void:
-	var err := await NetSession.join_and_wait(_join_ip_text())
+	var err := await NetSession.join_and_wait(_join_address_text())
 	if err == OK:
 		show_banner("Joined. Wait for the host to press LAUNCH RAID.")
 		if NetSession.is_online() and not NetSession.is_host():

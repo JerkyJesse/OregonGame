@@ -842,8 +842,19 @@ func _apply_hit(node: Node, dmg: float, point: Vector3, slot_hint: String = "") 
 func _rpc_shot(from: Vector3, to: Vector3, dmg: float, kind: String) -> void:
 	if not NetSession.is_host():
 		return
+	if multiplayer.get_remote_sender_id() != get_multiplayer_authority():
+		return
 	if dmg < 0.0 or dmg > 400.0:
 		return
+	if not from.is_finite() or not to.is_finite():
+		return
+	if from.distance_to(to) > 200.0:
+		return
+	match kind:
+		"melee", "ballistic", "energy", "missile":
+			pass
+		_:
+			return
 	_hitscan(from, to, dmg, kind)
 
 
@@ -950,6 +961,7 @@ func _loot_drop_pos(slot: String) -> Vector3:
 			side = -0.5
 		_:
 			side = 1.1
+	var reach := 2.8
 	return global_position + outward.normalized() * reach + right * side + Vector3(0, 1.15, 0)
 
 

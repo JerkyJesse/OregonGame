@@ -77,24 +77,25 @@ func _build() -> void:
 	_add_button(v, "CONTINUE" if RunState.has_save() else "ENTER NEW DODGE", _enter_hangar)
 	_add_button(v, "QUICK DEPLOY  (Ash Yard 7, scavenger)", _quick)
 	_add_button(v, "HOST RAID  :%d" % NetSession.PORT, _host)
-	var ip_row := HBoxContainer.new()
-	ip_row.add_theme_constant_override("separation", 8)
-	v.add_child(ip_row)
-	var ip_lab := Label.new()
-	ip_lab.text = "Join IP"
-	ip_row.add_child(ip_lab)
+	var addr_row := HBoxContainer.new()
+	addr_row.add_theme_constant_override("separation", 8)
+	v.add_child(addr_row)
+	var addr_lab := Label.new()
+	addr_lab.text = "Host address"
+	addr_row.add_child(addr_lab)
 	_ip = LineEdit.new()
-	_ip.text = NetSession.join_ip
-	_ip.placeholder_text = "host LAN IP"
+	_ip.text = ""
+	_ip.placeholder_text = "host address (hidden while typing)"
+	_ip.secret = true
 	_ip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ip_row.add_child(_ip)
+	addr_row.add_child(_ip)
 	_add_button(v, "JOIN FRIEND", _join)
 	_add_button(v, "QUIT", _quit)
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_color_override("font_color", Color(0.7, 0.82, 0.78))
-	_status.text = "Host, then friends type your LAN IP and Join. This PC: %s" % NetSession.lan_ip_text()
+	_status.text = "Host a raid, then friends enter your host address and Join. Same network. Port %d." % NetSession.PORT
 	root.add_child(_status)
 	var foot := Label.new()
 	foot.text = WorldLore.controls_footer()
@@ -250,8 +251,8 @@ func _host() -> void:
 	RunState.deploy_scale = "scavenger"
 	RunState.raid_map = "ash_yard"
 	RunState.raid_mode = "combat"
-	_set_status("Hosting %s:%d — launching Ash Yard." % [NetSession.lan_ip_text(), NetSession.PORT])
-	print("HOST_READY ", NetSession.lan_ip_text(), ":", NetSession.PORT)
+	_set_status("Hosting on port %d — launching Ash Yard." % NetSession.PORT)
+	print("HOST_READY port=", NetSession.PORT)
 	NetSession.start_raid("res://scenes/raid.tscn")
 
 
@@ -260,12 +261,12 @@ func _join() -> void:
 
 
 func _join_async() -> void:
-	var ip := "127.0.0.1"
+	var address := ""
 	if _ip:
-		ip = _ip.text.strip_edges()
-	_set_status("Connecting to %s…" % ip)
-	print("JOIN_START ", ip)
-	var err := await NetSession.join_and_wait(ip)
+		address = _ip.text.strip_edges()
+	_set_status("Connecting to host…")
+	print("JOIN_START")
+	var err := await NetSession.join_and_wait(address)
 	if not is_inside_tree():
 		print("JOIN_ABORTED scene gone")
 		return

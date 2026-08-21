@@ -2,6 +2,13 @@ extends Node
 
 const PORT := 7777
 const MAX_PLAYERS := 8
+const MAX_ADDR_LEN := 253
+const ALLOWED_RAID_PATHS := [
+	"res://scenes/raid.tscn",
+	"res://scenes/pipeline.tscn",
+]
+const ALLOWED_MAPS := ["ash_yard", "pipeline"]
+const ALLOWED_MODES := ["combat", "scav_wave", "late_drop"]
 
 signal session_changed
 signal peer_ready(id: int)
@@ -11,7 +18,8 @@ var late_join: bool = false
 var wanted_scale: String = "scavenger"
 var raid_path: String = ""
 var last_error: String = ""
-var join_ip: String = "127.0.0.1"
+## Stored for reconnect only — never shown on screen.
+var join_address: String = ""
 
 
 func _ready() -> void:
@@ -53,17 +61,23 @@ func host_game() -> Error:
 	return OK
 
 
-func join_game(ip: String) -> Error:
+func join_game(address: String) -> Error:
 	_drop()
 	last_error = ""
-	var target := ip.strip_edges()
+	var target := sanitize_join_address(address)
+	# Empty field → silent loopback for local smoke joins. Never shown in UI.
 	if target == "":
-		target = "127.0.0.1"
-	join_ip = target
+		if address.strip_edges() == "":
+			target = "127.0.0.1"
+		else:
+			last_error = "Host address looks invalid. Use a hostname or address, no port."
+			session_changed.emit()
+			return ERR_INVALID_PARAMETER
+	join_address = target
 	peer = ENetMultiplayerPeer.new()
 	var err := peer.create_client(target, PORT)
 	if err != OK:
-		last_error = "Could not reach %s:%d (%s)." % [target, PORT, error_string(err)]
+		last_error = "Could not reach host on port %d (%s)." % [PORT, error_string(err)]
 		peer = null
 		session_changed.emit()
 		return err
@@ -76,8 +90,8 @@ func join_game(ip: String) -> Error:
 	return OK
 
 
-func join_and_wait(ip: String) -> Error:
-	var err := join_game(ip)
+func join_and_wait(address: String) -> Error:
+	var err := join_game(address)
 	if err != OK:
 		return err
 	for _i in 600:
@@ -88,20 +102,23 @@ func join_and_wait(ip: String) -> Error:
 			return OK
 		if peer == null or peer.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:
 			_drop()
-			last_error = "Connection refused. Host a raid first, then join that PC's LAN IP."
+			last_error = "Connection refused. Host a raid first, then join from the same network."
 			return ERR_CANT_CONNECT
 	_drop()
-	last_error = "Timed out joining %s:%d." % [join_ip, PORT]
+	last_error = "Timed out joining host on port %d." % PORT
 	return ERR_CANT_CONNECT
 
 
 func start_raid(path: String) -> void:
-	raid_path = path
+	var safe := sanitize_raid_path(path)
+	if safe == "":
+		return
+	raid_path = safe
 	if is_online() and is_host():
-		rpc_enter_raid.rpc(path, RunState.raid_map, RunState.raid_mode, RunState.faction)
+		rpc_enter_raid.rpc(safe, RunState.raid_map, RunState.raid_mode, RunState.faction)
 	var tree := get_tree()
 	if tree:
-		tree.change_scene_to_file(path)
+		tree.change_scene_to_file(safe)
 
 
 func scene_for_map(map_id: String) -> String:
@@ -120,23 +137,27 @@ func in_raid_scene() -> bool:
 
 @rpc("authority", "call_remote", "reliable")
 func rpc_enter_raid(path: String, map: String, mode: String, faction: String) -> void:
-	if path == "" or not path.begins_with("res://"):
+	var safe_path := sanitize_raid_path(path)
+	var safe_map := sanitize_map(map)
+	var safe_mode := sanitize_mode(mode)
+	var safe_faction := sanitize_faction(faction)
+	if safe_path == "" or safe_map == "" or safe_mode == "" or safe_faction == "":
 		return
-	if in_raid_scene() and get_tree().current_scene.scene_file_path == path:
+	if in_raid_scene() and get_tree().current_scene.scene_file_path == safe_path:
 		return
-	raid_path = path
-	RunState.raid_map = map
-	RunState.faction = faction
+	raid_path = safe_path
+	RunState.raid_map = safe_map
+	RunState.faction = safe_faction
 	if late_join:
 		RunState.deploy_scale = "scavenger"
 		RunState.raid_mode = "late_drop"
 	else:
-		RunState.raid_mode = mode
+		RunState.raid_mode = safe_mode
 	var tree := get_tree()
 	if tree == null:
 		return
-	print("NET_ENTER_RAID ", path, " as ", local_id())
-	tree.change_scene_to_file(path)
+	print("NET_ENTER_RAID ", safe_path, " as ", local_id())
+	tree.change_scene_to_file(safe_path)
 
 
 @rpc("any_peer", "reliable")
@@ -146,7 +167,10 @@ func request_raid() -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if id == 0:
 		return
-	rpc_enter_raid.rpc_id(id, raid_path, RunState.raid_map, RunState.raid_mode, RunState.faction)
+	var safe_path := sanitize_raid_path(raid_path)
+	if safe_path == "":
+		return
+	rpc_enter_raid.rpc_id(id, safe_path, RunState.raid_map, RunState.raid_mode, RunState.faction)
 
 
 func disconnect_game() -> void:
@@ -175,7 +199,9 @@ func rpc_host_extracted() -> void:
 func _on_peer_in(id: int) -> void:
 	session_changed.emit()
 	if is_host() and raid_path != "":
-		rpc_enter_raid.rpc_id(id, raid_path, RunState.raid_map, RunState.raid_mode, RunState.faction)
+		var safe_path := sanitize_raid_path(raid_path)
+		if safe_path != "":
+			rpc_enter_raid.rpc_id(id, safe_path, RunState.raid_map, RunState.raid_mode, RunState.faction)
 	peer_ready.emit(id)
 
 
@@ -184,6 +210,7 @@ func _on_peer_left(id: int) -> void:
 	var tree := get_tree()
 	if tree == null:
 		return
+	tree.call_group("loot", "clear_pending_grant", id)
 	var n := tree.current_scene
 	if n and n.has_node("Scavenger_%d" % id):
 		n.get_node("Scavenger_%d" % id).queue_free()
@@ -205,6 +232,7 @@ func _drop() -> void:
 	raid_path = ""
 
 
+## Kept for diagnostics / tooling — never call from UI labels.
 func lan_ips() -> PackedStringArray:
 	var out: PackedStringArray = PackedStringArray()
 	for addr in IP.get_local_addresses():
@@ -217,23 +245,103 @@ func lan_ips() -> PackedStringArray:
 	return out
 
 
-func lan_ip_text() -> String:
-	var ips := lan_ips()
-	if ips.is_empty():
-		return "127.0.0.1"
-	return ", ".join(ips)
-
-
 func status_text() -> String:
 	if not is_online():
 		return "OFFLINE"
 	if is_host():
-		return "HOST  %s:%d  %d/%d" % [lan_ip_text(), PORT, multiplayer.get_peers().size() + 1, MAX_PLAYERS]
-	return "CLIENT  %s:%d  id %d" % [join_ip, PORT, multiplayer.get_unique_id()]
+		return "HOST  :%d  %d/%d" % [PORT, multiplayer.get_peers().size() + 1, MAX_PLAYERS]
+	return "CLIENT  :%d  id %d" % [PORT, multiplayer.get_unique_id()]
+
+
+func sanitize_join_address(raw: String) -> String:
+	var s := raw.strip_edges()
+	if s == "":
+		return ""
+	if s.length() > MAX_ADDR_LEN:
+		return ""
+	# Reject whitespace / control / URL-ish junk that should never be a host.
+	for i in s.length():
+		var c := s.unicode_at(i)
+		if c <= 32 or c == 127:
+			return ""
+	if s.find("/") >= 0 or s.find("\\") >= 0 or s.find("@") >= 0 or s.find("?") >= 0 or s.find("#") >= 0:
+		return ""
+	# Strip accidental port suffix — we always use PORT.
+	if s.begins_with("[") and s.find("]") > 0:
+		s = s.substr(1, s.find("]") - 1)
+	elif s.count(":") == 1 and not s.begins_with(":"):
+		var host_only := s.get_slice(":", 0)
+		if host_only.is_valid_ip_address() or _looks_like_hostname(host_only):
+			s = host_only
+	if s.is_valid_ip_address():
+		return s
+	if _looks_like_hostname(s):
+		return s.to_lower()
+	return ""
+
+
+func _looks_like_hostname(s: String) -> bool:
+	if s.length() < 1 or s.length() > MAX_ADDR_LEN:
+		return false
+	if s.begins_with("-") or s.ends_with("-") or s.begins_with(".") or s.ends_with("."):
+		return false
+	for i in s.length():
+		var ch := s[i]
+		var ok := (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z") or (ch >= "0" and ch <= "9") or ch == "-" or ch == "."
+		if not ok:
+			return false
+	return true
+
+
+func sanitize_raid_path(path: String) -> String:
+	var p := path.strip_edges()
+	if p in ALLOWED_RAID_PATHS:
+		return p
+	return ""
+
+
+func sanitize_map(map_id: String) -> String:
+	var m := map_id.strip_edges()
+	if m in ALLOWED_MAPS:
+		return m
+	return ""
+
+
+func sanitize_mode(mode: String) -> String:
+	var m := mode.strip_edges()
+	if m in ALLOWED_MODES:
+		return m
+	return ""
+
+
+func sanitize_faction(faction: String) -> String:
+	var f := faction.strip_edges()
+	if f in RunState.FACTIONS:
+		return f
+	return ""
 
 
 func sanity_loot(part: Dictionary) -> bool:
 	if part.is_empty() or str(part.get("id", "")) == "":
 		return false
+	var id := str(part.get("id", ""))
+	if id not in RunState.catalog_ids():
+		return false
 	var w := float(part.get("weight", 0.0))
-	return w >= 0.0 and w < 400.0
+	if w < 0.0 or w >= 400.0:
+		return false
+	var value := float(part.get("value", 0.0))
+	if value < 0.0 or value > 100000.0:
+		return false
+	var cond := float(part.get("condition", 1.0))
+	if cond < 0.0 or cond > 1.0:
+		return false
+	return true
+
+
+## Compat alias — older UI used join_ip; keep empty so nothing IP-like is prefilled.
+var join_ip: String:
+	get:
+		return join_address
+	set(v):
+		join_address = sanitize_join_address(str(v))
