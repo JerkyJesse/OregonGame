@@ -1,6 +1,9 @@
 ﻿extends CanvasLayer
 
 const LOOK := preload("res://world/WorldLook.gd")
+const BANNER_LOW := 0
+const BANNER_NORMAL := 1
+const BANNER_HIGH := 2
 
 
 var ui_busy: bool = false
@@ -11,6 +14,7 @@ var _picker_slot: String = ""
 var _picker_scale: String = "light"
 var _picker_uids: Array[String] = []
 var _banner_left: float = 0.0
+var _banner_pri: int = 0
 var _from_loadout: bool = false
 var _workshop_scale: String = "light"
 var _filter: String = "all"
@@ -170,6 +174,7 @@ func _process(delta: float) -> void:
 		_banner.modulate.a = clampf(_banner_left / 0.4, 0.0, 1.0) if _banner_left < 0.4 else 1.0
 		if _banner_left <= 0.0:
 			_banner.text = ""
+			_banner_pri = BANNER_LOW
 	if RunState.in_raid:
 		RunState.raid_timer += delta
 		_timer.text = "RAID  %02d:%02d" % [int(RunState.raid_timer) / 60, int(RunState.raid_timer) % 60]
@@ -189,6 +194,7 @@ func reset_for_scene() -> void:
 	set_heat(-1.0)
 	set_sensors("")
 	set_sections("")
+	_banner_pri = BANNER_LOW
 	set_lungs(-1.0)
 	refresh_carry()
 	set_health(RunState.health)
@@ -287,10 +293,20 @@ func set_extract(progress: float) -> void:
 	_extract_bar.value = clampf(progress, 0.0, 1.0) * 100.0
 
 
-func show_banner(text: String) -> void:
+func show_banner(text: String, priority: int = BANNER_NORMAL) -> void:
+	if text.strip_edges() == "":
+		return
+	if _banner_left > 0.55 and priority < _banner_pri:
+		return
+	_banner_pri = priority
 	_banner.text = text
 	_banner.modulate.a = 1.0
-	_banner_left = 3.6
+	if priority >= BANNER_HIGH:
+		_banner_left = 4.4
+	elif priority <= BANNER_LOW:
+		_banner_left = 2.4
+	else:
+		_banner_left = 3.6
 
 
 func open_loadout_editor() -> void:

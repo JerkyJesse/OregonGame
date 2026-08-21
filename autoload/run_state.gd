@@ -450,6 +450,13 @@ func add_carry(part: Dictionary, secure: bool = false) -> bool:
 		return false
 	if not NetSession.sanity_loot(part):
 		return false
+	if not in_raid:
+		if stash_weight() + float(part.get("weight", 0.0)) > stash_limit() + 0.01:
+			last_message = "Stash full."
+			return false
+		stash.append(part)
+		save_state()
+		return true
 	if not can_carry(part):
 		last_message = "Overweight — dump something or extract."
 		return false
@@ -462,6 +469,20 @@ func add_carry(part: Dictionary, secure: bool = false) -> bool:
 		if bool(part.get("is_payload", false)):
 			last_message = WorldLore.core_carry_banner()
 	return true
+
+
+func bank_carry_to_stash() -> int:
+	var n := raid_carry.size() + secure_carry.size()
+	if n <= 0:
+		return 0
+	for part in raid_carry:
+		stash.append(part)
+	for part in secure_carry:
+		stash.append(part)
+	raid_carry.clear()
+	secure_carry.clear()
+	save_state()
+	return n
 
 
 func dump_last_carry() -> Dictionary:

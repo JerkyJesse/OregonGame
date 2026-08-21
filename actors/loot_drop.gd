@@ -20,7 +20,24 @@ func _ready() -> void:
 		add_to_group("torn_loot")
 	collision_layer = 9
 	collision_mask = 0
+	_grow_pickup_shape()
 	_dress_glow()
+
+
+func _grow_pickup_shape() -> void:
+	var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col == null:
+		col = CollisionShape3D.new()
+		col.name = "CollisionShape3D"
+		add_child(col)
+	var box := BoxShape3D.new()
+	if torn_off or rival_bag:
+		box.size = Vector3(1.9, 2.6, 1.9)
+		col.position = Vector3(0, 1.0, 0)
+	else:
+		box.size = Vector3(1.2, 1.4, 1.2)
+		col.position = Vector3(0, 0.35, 0)
+	col.shape = box
 
 
 func _dress_glow() -> void:
@@ -113,11 +130,11 @@ func _host_give(peer_id: int) -> void:
 			return
 		Hud.refresh_carry()
 		if rival_bag:
-			Hud.show_banner("Stole rival bag — %s" % taken.get("display_name", "part"))
+			Hud.show_banner("Stole rival bag — %s" % taken.get("display_name", "part"), Hud.BANNER_HIGH)
 		elif torn_off:
-			Hud.show_banner("Grabbed torn %s" % taken.get("display_name", "part"))
+			Hud.show_banner("Grabbed torn %s" % taken.get("display_name", "part"), Hud.BANNER_HIGH)
 		else:
-			Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
+			Hud.show_banner("Picked up %s" % taken.get("display_name", "part"), Hud.BANNER_HIGH)
 		_pop_next()
 		if part.is_empty():
 			rpc_taken.rpc()
@@ -150,7 +167,7 @@ func rpc_grant_part(taken: Dictionary) -> void:
 		return
 	if RunState.add_carry(taken):
 		Hud.refresh_carry()
-		Hud.show_banner("Picked up %s" % taken.get("display_name", "part"))
+		Hud.show_banner("Picked up %s" % taken.get("display_name", "part"), Hud.BANNER_HIGH)
 		rpc_loot_result.rpc_id(1, true)
 	else:
 		Hud.show_banner("Carry full.")
