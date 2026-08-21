@@ -758,6 +758,7 @@ func _try_fire() -> void:
 	var kind := str(weapon.get("weapon_kind", "ballistic"))
 	_fire_cd = 0.09 if kind == "ballistic" else (0.55 if kind == "missile" else (0.22 if kind == "energy" else 0.4))
 	heat += float(weapon.get("heat_gen", 8.0))
+	heat = minf(heat, HEAT_MAX)
 	var dmg := float(weapon.get("damage", 24.0)) * lerpf(0.4, 1.0, float(weapon.get("condition", 1.0)))
 	if kind == "melee":
 		dmg *= 1.6
@@ -901,11 +902,8 @@ func take_section_damage(amount: float, point: Vector3, slot_hint: String = "") 
 			_overflow_damage(slot, amount, point)
 		return
 	section_hp[slot] = before - amount * 0.65
-	take_damage(amount * 0.55)
-	if not alive:
-		return
-	_apply_limb_visuals()
 	var hp_now := float(section_hp.get(slot, 0.0))
+	_apply_limb_visuals()
 	Fx.float_text(point, WorldLore.section_abbrev(slot), Color(1.0, 0.55, 0.18) if hp_now > 0.0 else Color(1.0, 0.28, 0.1))
 	if boarded:
 		Hud.set_sections(section_readout())
@@ -914,8 +912,11 @@ func take_section_damage(amount: float, point: Vector3, slot_hint: String = "") 
 	if hp_now <= 0.0:
 		_break_section(slot)
 		var spill := -hp_now
-		if spill > 2.0:
+		take_damage(amount * 0.55)
+		if alive and spill > 2.0:
 			_overflow_damage(slot, spill / 0.65, point)
+		return
+	take_damage(amount * 0.55)
 
 
 func _loot_drop_pos(slot: String) -> Vector3:
@@ -929,8 +930,27 @@ func _loot_drop_pos(slot: String) -> Vector3:
 		outward.y = 0.0
 	if outward.length() < 0.4:
 		outward = global_transform.basis.z
-	var reach := 5.4 if scale_id == "heavy" else 4.8
-	return global_position + outward.normalized() * reach + Vector3(0, 1.15, 0)
+	var right := outward.cross(Vector3.UP)
+	if right.length() < 0.2:
+		right = global_transform.basis.x
+	right = right.normalized()
+	var side := 0.0
+	match slot:
+		"arm_l":
+			side = -1.6
+		"arm_r":
+			side = 1.6
+		"legs":
+			side = -0.9
+		"sensors":
+			side = 0.7
+		"chest":
+			side = 0.0
+		"reactor":
+			side = -0.5
+		_:
+			side = 1.1
+	return global_position + outward.normalized() * reach + right * side + Vector3(0, 1.15, 0)
 
 
 func _overflow_damage(from_slot: String, amount: float, point: Vector3) -> void:
@@ -939,18 +959,30 @@ func _overflow_damage(from_slot: String, amount: float, point: Vector3) -> void:
 		"arm_r": ["chest", "arm_l", "legs"],
 		"arm_l": ["chest", "arm_r", "legs"],
 		"legs": ["chest", "arm_r", "arm_l"],
-		"sensors": ["chest", "arm_r", "arm_l"],
+		"sensors": ["arm_r", "arm_l", "chest"],
 		"reactor": ["chest", "utility"],
 		"utility": ["chest", "legs"],
 	}
 	var nexts: Variant = order.get(from_slot, ["chest", "arm_r", "arm_l"])
 	if not (nexts is Array):
 		return
+	var armed: Array[String] = []
+	var bare: Array[String] = []
 	for n in nexts:
 		var slot := str(n)
-		if float(section_hp.get(slot, 0.0)) > 0.0:
-			take_section_damage(amount * 0.9, point, slot)
-			return
+		if float(section_hp.get(slot, 0.0)) <= 0.0:
+			continue
+		var part: Variant = equipped.get(slot, {})
+		if part is Dictionary and not (part as Dictionary).is_empty():
+			armed.append(slot)
+		else:
+			bare.append(slot)
+	for slot in armed:
+		take_section_damage(amount * 0.9, point, slot)
+		return
+	for slot in bare:
+		take_section_damage(amount * 0.9, point, slot)
+		return
 
 
 func _break_section(slot: String, announce: bool = true) -> void:
@@ -972,7 +1004,7 @@ func _break_section(slot: String, announce: bool = true) -> void:
 		equipped[slot] = {}
 		component_dropped.emit(drop, pop_at + Vector3(randf_range(-0.4, 0.4), 0.2, randf_range(-0.4, 0.4)))
 		if announce:
-			Hud.show_banner(WorldLore.torn_off_banner(str(drop.get("display_name", slot)), slot, bool(drop.get("is_weapon", false))))
+			Hud.show_banner(WorldLore.torn_off_banner(str(drop.get("display_name", slot)), slot, bool(drop.get("is_weapon", false))), Hud.BANNER_HIGH)
 			Fx.float_text(pop_at + Vector3(0, 1.1, 0), "%s TORN" % str(drop.get("display_name", slot)).to_upper(), Color(1.0, 0.62, 0.2))
 	else:
 		Fx.float_text(pop_at + Vector3(0, 0.8, 0), "%s GONE" % WorldLore.section_abbrev(slot), Color(0.95, 0.4, 0.15))
@@ -1012,7 +1044,6 @@ func take_damage(amount: float) -> void:
 	hull -= amount
 	if boarded:
 		Hud.set_health(hull)
-		Hud.show_banner("%s hull  %d" % [scale_id.to_upper(), maxi(int(hull), 0)])
 	if hull <= 0.0:
 		_die()
 
@@ -1205,7 +1236,8 @@ func _update_cockpit_hud() -> void:
 	var sh := ""
 	if _shield_max() > 0.0:
 		sh = "  SHD %d" % int(shield_hp)
-	Hud.set_prompt("%s  %s   HEAT %.0f  WT %.0f%s   [F] dismount" % [scale_id.to_upper(), wname, heat, w, sh])
+	var lock := "  LOCK" if heat >= 96.0 else ""
+	Hud.set_prompt("%s  %s   HEAT %.0f%s  WT %.0f%s   [F] dismount" % [scale_id.to_upper(), wname, heat, lock, w, sh])
 	Hud.set_sections(section_readout())
 	if has_sensors():
 		Hud.set_sensors(_sensor_text())

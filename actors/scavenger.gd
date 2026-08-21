@@ -244,6 +244,9 @@ func _machine_from(node: Node) -> Node:
 
 
 func _interactable() -> Node:
+	var loot := _nearest_loot()
+	if loot:
+		return loot
 	if _ray == null:
 		return null
 	_ray.collide_with_areas = true
@@ -261,6 +264,45 @@ func _interactable() -> Node:
 		if n:
 			return n
 	return _nearest_machine()
+
+
+func _nearest_loot() -> Node:
+	if _camera == null or not is_inside_tree():
+		return null
+	var best: Node = null
+	var best_score := 999.0
+	var facing := -_camera.global_transform.basis.z
+	var origin := _camera.global_position
+	for n in get_tree().get_nodes_in_group("loot"):
+		if not (n is Node3D):
+			continue
+		if not n.has_method("interact") or not n.has_method("get_interact_label"):
+			continue
+		if str(n.call("get_interact_label")).strip_edges() == "":
+			continue
+		var pos: Vector3 = (n as Node3D).global_position + Vector3(0, 0.75, 0)
+		var offset := pos - origin
+		var d := offset.length()
+		if d > 5.2:
+			continue
+		var dir := offset / maxf(d, 0.001)
+		var face := facing.dot(dir)
+		var tagged := n.is_in_group("torn_loot") or n.is_in_group("rival_bag")
+		var reach := 3.4 if tagged else 2.2
+		if d <= reach:
+			if face < -0.2:
+				continue
+		elif face < 0.28:
+			continue
+		var score := d
+		if tagged:
+			score -= 0.9
+		if face > 0.55:
+			score -= 0.35
+		if score < best_score:
+			best_score = score
+			best = n
+	return best
 
 
 func _nearest_machine() -> Node:

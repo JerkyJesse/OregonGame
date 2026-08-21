@@ -39,7 +39,7 @@ func get_interact_label() -> String:
 	if hp_pack is Dictionary:
 		hp = float((hp_pack as Dictionary).get(slot, 1.0))
 	if hp <= 0.0:
-		return "%s wrecked" % pretty
+		return ""
 	if equipped is Dictionary and not (equipped as Dictionary).is_empty():
 		var crack := "  CRACKING" if hp < 28.0 else ""
 		return "Strip %s (%s %.0f%s, %.0f%%)  [E]" % [equipped.get("display_name", "?"), pretty, hp, crack, float(equipped.get("condition", 1.0)) * 100.0]

@@ -20,5 +20,8 @@ func _on_body_entered(body: Node) -> void:
 
 
 func _go_hangar() -> void:
+	var n := RunState.bank_carry_to_stash()
+	if n > 0:
+		RunState.last_message = "Stashed %d range parts." % n
 	RunState.save_state()
 	get_tree().change_scene_to_file("res://scenes/hangar.tscn")
