@@ -961,6 +961,7 @@ func _loot_drop_pos(slot: String) -> Vector3:
 			side = -0.5
 		_:
 			side = 1.1
+	var reach := 2.8
 	return global_position + outward.normalized() * reach + right * side + Vector3(0, 1.15, 0)
 
 

@@ -43,8 +43,8 @@ func hold_hack(actor: Node, delta: float) -> void:
 
 func _sync_taken() -> void:
 	var mech := get_parent()
-	if mech:
-		taken = bool(mech.get("core_taken"))
+	if mech != null and mech.get("core_taken") != null:
+		taken = mech.get("core_taken") == true
 	for c in get_children():
 		if c is MeshInstance3D:
 			(c as MeshInstance3D).visible = not taken
