@@ -21,6 +21,10 @@ run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
+
 [autoload]
 
 Settings="*res://autoload/settings.gd"
@@ -28,6 +32,7 @@ RunState="*res://autoload/run_state.gd"
 Hud="*res://ui/hud.tscn"
 Fx="*res://autoload/fx.gd"
 NetSession="*res://autoload/net_session.gd"
+Walkthrough="*res://autoload/walkthrough.gd"
 
 [display]
 

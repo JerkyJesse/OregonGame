@@ -18,9 +18,9 @@ func _ready() -> void:
 	var torus := TorusMesh.new()
 	torus.inner_radius = 69.4
 	torus.outer_radius = 70.6
-	torus.rings = 48
-	torus.ring_segments = 12
-	torus.material = LOOK.emit_surface(Color(0.62, 0.95, 0.28, 0.55), 2.4, 0.5)
+	torus.rings = 72
+	torus.ring_segments = 18
+	torus.material = LOOK.emit_surface(Color(0.62, 0.95, 0.28, 0.55), 3.2, 0.5)
 	_ring.mesh = torus
 	_ring.rotation_degrees.x = 90.0
 	_ring.position.y = 0.4
@@ -32,21 +32,30 @@ func _ready() -> void:
 	light.position = Vector3(0, 5, 0)
 	light.light_volumetric_fog_energy = 1.6
 	add_child(light)
-	LOOK.dust(self, Vector3(42, 12, 42), Color(0.5, 0.85, 0.28, 0.14), 48)
+	LOOK.dust(self, Vector3(42, 12, 42), Color(0.5, 0.85, 0.28, 0.14), 72)
 	var tend := Node3D.new()
 	tend.name = "Tendrils"
 	add_child(tend)
-	for i in 8:
-		var ang := TAU * float(i) / 8.0
+	for i in 12:
+		var ang := TAU * float(i) / 12.0
 		var stalk := MeshInstance3D.new()
 		var mesh := CylinderMesh.new()
 		mesh.top_radius = 0.04
 		mesh.bottom_radius = 0.16
 		mesh.height = 2.4
+		mesh.radial_segments = 10
 		mesh.material = LOOK.flesh_mat(LOOK.PALE, 1.6)
 		stalk.mesh = mesh
 		stalk.position = Vector3(cos(ang) * 69.0, 1.2, sin(ang) * 69.0)
 		tend.add_child(stalk)
+	var glow := OmniLight3D.new()
+	glow.name = "RingGlow"
+	glow.light_color = Color(0.55, 1.0, 0.28)
+	glow.light_energy = 5.0
+	glow.omni_range = 28.0
+	glow.position = Vector3(0, 4, 0)
+	glow.light_volumetric_fog_energy = 2.2
+	add_child(glow)
 
 
 func _process(delta: float) -> void:
@@ -68,7 +77,7 @@ func _process(delta: float) -> void:
 		var idx := 0
 		for child in tend.get_children():
 			if child is Node3D:
-				var ang := TAU * float(idx) / 8.0 + _pulse * 0.15
+				var ang := TAU * float(idx) / 12.0 + _pulse * 0.15
 				(child as Node3D).position = Vector3(cos(ang) * radius, 1.1 + sin(_pulse * 2.0 + float(idx)) * 0.2, sin(ang) * radius)
 				idx += 1
 	LOOK.set_pale(get_parent(), clampf(1.0 - radius / 70.0, 0.0, 0.95))
@@ -94,8 +103,9 @@ func _process(delta: float) -> void:
 		if sealed and _warn <= 0.0 and RunState.raid_timer > 2.0:
 			Hud.set_sensors(WorldLore.sealed_pocket_hint())
 		if cause != "":
-			var dps := 16.0 if cause == "bloom" else 4.0
-			scav.take_damage(dps * delta, cause)
+			if not RunState.walkthrough:
+				var dps := 16.0 if cause == "bloom" else 4.0
+				scav.take_damage(dps * delta, cause)
 			if _warn <= 0.0:
 				Hud.show_banner(WorldLore.storm_banner() if cause == "bloom" else WorldLore.haze_banner())
 				_warn = 2.4
@@ -111,7 +121,7 @@ func _process(delta: float) -> void:
 		if n is Node3D and n.is_in_group("machine"):
 			var p := n as Node3D
 			var d := Vector2(p.global_position.x, p.global_position.z).length()
-			if d > radius and not RunState.bloom_native():
+			if d > radius and not RunState.bloom_native() and not RunState.walkthrough:
 				n.call("take_damage", 6.0 * delta)
 
 

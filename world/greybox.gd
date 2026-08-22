@@ -69,6 +69,7 @@ static func build_hangar_props(parent: Node3D, tier: int = 1) -> void:
 	# Tier 1: cramped scav bay
 	add_box(parent, Vector3(-10, 0.35, -8), Vector3(3.2, 0.7, 2.4), Color(0.2, 0.18, 0.14))
 	add_box(parent, Vector3(6, 0.9, 10), Vector3(2.0, 1.8, 1.4), steel)
+	_barrel_stack(parent, Vector3(-12, 0, 6))
 	if tier >= 2:
 		add_box(parent, Vector3(16, 2.2, -6), Vector3(5, 4.4, 8), Color(0.16, 0.17, 0.19))
 		add_box(parent, Vector3(-16, 0.2, -4), Vector3(8, 0.2, 8), Color(0.2, 0.18, 0.12), 0.2)
@@ -127,10 +128,14 @@ static func add_crane(parent: Node3D, pos: Vector3, yaw: float) -> void:
 	var steel := Color(0.26, 0.28, 0.3)
 	add_box(parent, pos + Vector3(0, 7.2, 0), Vector3(1.6, 14.4, 1.6), rust)
 	add_box(parent, pos + Vector3(0, 14.4, 0), Vector3(2.4, 0.7, 2.4), steel)
+	add_box(parent, pos + Vector3(0, 13.2, 0), Vector3(3.2, 0.35, 3.2), Color(0.18, 0.18, 0.2))
+	add_box(parent, pos + Vector3(0.9, 11.2, 0), Vector3(1.4, 1.8, 1.6), Color(0.22, 0.2, 0.16), 0.15)
 	var rad := deg_to_rad(yaw)
 	var boom := Vector3(cos(rad) * 7.0, 14.2, sin(rad) * 7.0)
 	add_box(parent, pos + boom, Vector3(14.0, 0.55, 0.7), steel, 0.0, Vector3(0, yaw, 8))
+	add_box(parent, pos + boom * 0.45 + Vector3(0, 0.4, 0), Vector3(0.35, 0.35, 0.35), Color(0.12, 0.12, 0.12))
 	add_box(parent, pos + boom + Vector3(0, -3.5, 0), Vector3(0.2, 7.0, 0.2), Color(0.12, 0.12, 0.12))
+	add_box(parent, pos + boom + Vector3(0, -7.1, 0), Vector3(1.6, 0.35, 1.1), rust)
 
 
 static func add_stairs(parent: Node3D, origin: Vector3, along: Vector3, steps: int, step_h: float, step_d: float, width: float, color: Color) -> void:
@@ -173,6 +178,9 @@ static func build_raid_cover(parent: Node3D) -> void:
 	add_box(parent, Vector3(-38, 0.08, -18), Vector3(8, 0.06, 8), Color(0.7, 0.22, 0.14), 0.6)
 	add_box(parent, Vector3(-32, 6.0, -20), Vector3(2.4, 12.0, 2.4), Color(0.22, 0.2, 0.18))
 	add_box(parent, Vector3(8, 9.0, 22), Vector3(3.0, 18.0, 3.0), Color(0.2, 0.18, 0.16))
+	_barrel_stack(parent, Vector3(14, 0, 6))
+	_barrel_stack(parent, Vector3(-12, 0, -10))
+	_barrel_stack(parent, Vector3(24, 0, -16))
 	sign_at(parent, Vector3(-6, 9.5, -26), "CRANE-ROW", Color(0.9, 0.55, 0.2))
 	sign_at(parent, Vector3(38, 3.4, 0), "EAST GREEN EXTRACT", Color(0.35, 0.95, 0.4))
 	sign_at(parent, Vector3(-38, 3.4, -18), "WEST PAD — BRASK TAX", Color(0.95, 0.35, 0.18))
@@ -237,3 +245,11 @@ static func build_range(parent: Node3D) -> void:
 	add_box(parent, Vector3(0, 2.4, -36), Vector3(3, 4.8, 1.4), Color(0.55, 0.18, 0.1), 0.7)
 	add_collider(parent, Vector3(-14, 6, -8), Vector3(0.6, 12, 28))
 	add_collider(parent, Vector3(14, 6, -8), Vector3(0.6, 12, 28))
+
+
+static func _barrel_stack(parent: Node3D, pos: Vector3) -> void:
+	var rust := Color(0.42, 0.22, 0.1)
+	LOOK.add_cyl(parent, pos + Vector3(0, 0.7, 0), 1.4, 0.42, rust)
+	LOOK.add_cyl(parent, pos + Vector3(0.7, 0.55, 0.15), 1.1, 0.36, Color(0.28, 0.18, 0.1))
+	LOOK.add_cyl(parent, pos + Vector3(-0.55, 0.45, 0.4), 0.9, 0.32, Color(0.2, 0.2, 0.18), Vector3.ZERO, 0.2)
+	add_collider(parent, pos + Vector3(0.1, 0.7, 0.15), Vector3(1.8, 1.4, 1.4))

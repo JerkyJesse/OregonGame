@@ -1,0 +1,150 @@
+{
+	"title_open": {
+		"who": "scav",
+		"text": "New Dodge still holds. After the Tarkovic Wars the yards don't. I'm going out there for a frame and a gun, and I'm coming home."
+	},
+	"title_menu": {
+		"who": "scav",
+		"text": "New game. Wipe the card. Fresh bag. Tam'll call me spark if I extract, idiot if I don't."
+	},
+	"crawl_1": {
+		"who": "scav",
+		"text": "Command handed kill-authority to the war AIs. The machines ended the war by ending human command. They still walk the yards in scavenged frames. We call them the Choir. The mind that got kill-authority is the First Voice."
+	},
+	"crawl_2": {
+		"who": "scav",
+		"text": "The Pale Host came with the collapse and seeded the air. The shrinking green ring is living weather. Bloom. White Lung. Open exposure kills. Sealed steel does not."
+	},
+	"crawl_3": {
+		"who": "scav",
+		"text": "Last humans raid from New Dodge. Ash Walkers living off wrecks. Helix Compact hoarding shards. Sealed Corps still wanting the Choir to say sir. Breaker Courts taxing the pads for Brask."
+	},
+	"crawl_4": {
+		"who": "scav",
+		"text": "Trust is scarcer than plating. Tam Picks Calder sells junk and paints in a New Dodge bay. He will not sell you an occupation gun. Says the Choir can smell a bought barrel."
+	},
+	"crawl_tam": {
+		"who": "tam",
+		"text": "Dodge is every yard with a shrinking ring. New Dodge is home. Get the mech. Get outta Dodge. Come home. And don't be the loudest idiot on the dirt."
+	},
+	"hangar_arrive": {
+		"who": "scav",
+		"text": "Sealed bay. Filter off. Air in here's Tam's problem, not the Host's. Tier one scav pad. That's enough to drop."
+	},
+	"hangar_sign": {
+		"who": "scav",
+		"text": "NEW DODGE, painted like a warning. Home is a hangar with a lock that still closes."
+	},
+	"hangar_range": {
+		"who": "scav",
+		"text": "Orange door's the test range. Cockpit live fire if I need to remember which end kicks. Not today. Yard's waiting."
+	},
+	"hangar_tam_walk": {
+		"who": "scav",
+		"text": "North wall. Tam's cage. Stool used to be a coolant drum. He'll talk if I look like I'm buying."
+	},
+	"tam_stall_1": {
+		"who": "tam",
+		"text": "Junk, filters, paints. Myomer that still twitches. Coolers that lie about the heat. I do not sell occupation guns. Choir can smell a bought barrel, spark."
+	},
+	"tam_stall_2": {
+		"who": "tam",
+		"text": "You want a Twin Vulcan, you tear it off a kneeling Helix yourself. Come back with a bag and I'll call you spark. Come back empty and you're still on the idiot card."
+	},
+	"hangar_frames": {
+		"who": "scav",
+		"text": "Parked light. I can bolt parts on it in the bay, E on the frame. Out there the same workbench is strip and bolt under a coat that's still walking."
+	},
+	"hangar_deploy": {
+		"who": "scav",
+		"text": "Deploy console. Scale, yard, mode, faction. I drop as a scavenger. On foot. That's the honest way to steal a gun."
+	},
+	"hangar_brief": {
+		"who": "scav",
+		"text": "Ash Yard 7. Combat. Occupancy live. Kneeling wrecks, crane-row walker, Pale weather on the horizon. Strip the medium, bolt the light, extract before the ring eats the pad."
+	},
+	"tam_sendoff": {
+		"who": "tam",
+		"text": "Filter ticking the second the lock opens. Hold E on a green pad when you've got something worth carrying. Don't loaf. I'll have tea that isn't tea."
+	},
+	"ash_drop": {
+		"who": "scav",
+		"text": "Ash Yard 7. West dirt. Combat drop. Coat's live on the crane-row. Pell's on the ring. Bag's empty. That's the job."
+	},
+	"ash_ring": {
+		"who": "scav",
+		"text": "Green ring's already shrinking. Bloom's a body. I stay inside it or I burn a can."
+	},
+	"ash_can": {
+		"who": "scav",
+		"text": "Sealed-air can. E to take it, R when the filter's dying. Tam wasn't kidding."
+	},
+	"ash_wreck": {
+		"who": "scav",
+		"text": "Warm wreck. I strip what still bolts. Occupation won't miss one cooler."
+	},
+	"ash_helix": {
+		"who": "scav",
+		"text": "Kneeling Helix. That's the gun. E, strip the chest, it's mine if I leave with it."
+	},
+	"ash_bolt": {
+		"who": "scav",
+		"text": "Parked light. Bolt the Vulcan. If the hardpoint takes it, I just made a war machine out of scrap."
+	},
+	"ash_board": {
+		"who": "scav",
+		"text": "F. Cockpit. Sealed steel. Lungs can rest a second."
+	},
+	"ash_guns": {
+		"who": "scav",
+		"text": "LMB. See if the barrel still believes in work."
+	},
+	"ash_dismount": {
+		"who": "scav",
+		"text": "Green pad's east and loud. I don't need to die in this light. F. On foot. Hold E. Get out."
+	},
+	"ash_jex": {
+		"who": "scav",
+		"text": "That's Jex on the band. He'll steal the bag if I loaf. I'm not loafing."
+	},
+	"ash_extract": {
+		"who": "scav",
+		"text": "Green extract. Contested. I hold E and I don't let go. Yard's going to scream. Let it."
+	},
+	"hangar2_tam": {
+		"who": "tam",
+		"text": "Idiot. Then spark. You bolted something and you brought it home. Tea's still not tea. Don't flash the bulge at the ring-seal."
+	},
+	"hangar2_pipe": {
+		"who": "scav",
+		"text": "One more drop. Pipeline Cut. Occupation fuel spine. Pump House 3 still sockets a Choir shard. I want that core in a secure slot and a yellow pad."
+	},
+	"pipe_drop": {
+		"who": "scav",
+		"text": "Pipeline Cut. Catwalks above, husks below. Spine walker's on mission. I didn't come for the walker. I came for Pump House 3."
+	},
+	"pipe_pump": {
+		"who": "scav",
+		"text": "Shard socket. I hold E and I stay exposed while it decrypts. First Voice is going to notice. That's the tax."
+	},
+	"pipe_decrypt": {
+		"who": "scav",
+		"text": "Come on. Don't get shot. Don't drop it. Don't own it. Just carry it."
+	},
+	"pipe_choir": {
+		"who": "scav",
+		"text": "There. Occupancy answered. Shard in the bag. Yellow LZ wants payload. I am not arguing with a pad."
+	},
+	"pipe_lz": {
+		"who": "scav",
+		"text": "Payload extract. Hold E. Get outta Dodge. Come home to New Dodge."
+	},
+	"hangar3_tam": {
+		"who": "tam",
+		"text": "Spark. That's a shard-shaped bulge. Don't tell the ring-seal I said you did good. I sell filters. I don't sell funerals. Get some rest, idiot."
+	},
+	"hangar3_home": {
+		"who": "scav",
+		"text": "Occupancy ongoing. I may extract. I may not own. New Dodge still holds. That's the whole loop. That's the job."
+	}
+}

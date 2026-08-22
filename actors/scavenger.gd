@@ -84,6 +84,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _local():
 		return
+	if Walkthrough.active:
+		if event.is_action_pressed("ui_cancel"):
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * MOUSE_SENS)
 		look_pitch = clampf(look_pitch - event.relative.y * MOUSE_SENS, deg_to_rad(-89.0), deg_to_rad(89.0))
@@ -111,12 +115,18 @@ func _physics_process(delta: float) -> void:
 
 	var input_dir := Vector2.ZERO
 	if not Hud.ui_busy and _local():
-		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	crawling = Input.is_key_pressed(KEY_CTRL) and _local()
+		if Walkthrough.active:
+			input_dir = Walkthrough.move_axis(self)
+			Walkthrough.apply_look(self, delta)
+		else:
+			input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	crawling = (not Walkthrough.active) and Input.is_key_pressed(KEY_CTRL) and _local()
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 	var speed := SPEED
 	if crawling:
 		speed = CRAWL
+	elif Walkthrough.active and Walkthrough.sprint:
+		speed = SPRINT
 	elif Input.is_key_pressed(KEY_SHIFT):
 		speed = SPRINT
 	if direction != Vector3.ZERO:
@@ -433,7 +443,7 @@ func _rpc_scav_shot(from: Vector3, to: Vector3) -> void:
 
 
 func take_damage(amount: float, cause: String = "") -> void:
-	if boarded or not RunState.in_raid or spawn_protect > 0.0:
+	if Walkthrough.active or boarded or not RunState.in_raid or spawn_protect > 0.0:
 		return
 	if not _local() and NetSession.is_online():
 		return

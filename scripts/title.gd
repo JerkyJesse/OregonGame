@@ -24,6 +24,8 @@ func _ready() -> void:
 	_build()
 	call_deferred("_focus_menu")
 	var args := OS.get_cmdline_user_args()
+	if Walkthrough.active:
+		return
 	if args.has("--host-raid"):
 		call_deferred("_host")
 	elif args.has("--join-raid"):

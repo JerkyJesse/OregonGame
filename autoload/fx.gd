@@ -10,7 +10,7 @@ var _last_puff_ms: int = 0
 func _ready() -> void:
 	for i in 8:
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master"
+		p.bus = "Sfx"
 		add_child(p)
 		_players.append(p)
 
@@ -103,10 +103,11 @@ func spawn_tracer(from: Vector3, to: Vector3, color: Color = Color(1.0, 0.72, 0.
 	var scene := get_tree().current_scene
 	var mi := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.018
-	cyl.bottom_radius = 0.055
+	cyl.top_radius = 0.014
+	cyl.bottom_radius = 0.042
 	cyl.height = dist
-	cyl.material = LOOK.additive(color, 2.4)
+	cyl.radial_segments = 8
+	cyl.material = LOOK.additive(color, 2.8)
 	mi.mesh = cyl
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	scene.add_child(mi)
@@ -116,10 +117,23 @@ func spawn_tracer(from: Vector3, to: Vector3, color: Color = Color(1.0, 0.72, 0.
 		return
 	mi.look_at_from_position(mi.global_position, to, Vector3.UP)
 	mi.rotate_object_local(Vector3.RIGHT, PI * 0.5)
-	_flash(scene, from, color, 0.1, 0.05)
+	var glow := MeshInstance3D.new()
+	var gmesh := CylinderMesh.new()
+	gmesh.top_radius = 0.04
+	gmesh.bottom_radius = 0.1
+	gmesh.height = dist
+	gmesh.radial_segments = 6
+	gmesh.material = LOOK.additive(color, 1.1)
+	glow.mesh = gmesh
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	scene.add_child(glow)
+	glow.global_transform = mi.global_transform
+	_flash(scene, from, color, 0.12, 0.05)
 	get_tree().create_timer(0.11).timeout.connect(func() -> void:
 		if is_instance_valid(mi):
 			mi.queue_free()
+		if is_instance_valid(glow):
+			glow.queue_free()
 	)
 
 
@@ -127,6 +141,7 @@ func spark(pos: Vector3, color: Color = Color(1.0, 0.7, 0.25)) -> void:
 	if get_tree() == null or get_tree().current_scene == null:
 		return
 	_flash(get_tree().current_scene, pos, color, 0.16, 0.07)
+	LOOK.impact(get_tree().current_scene, pos, color)
 
 
 func puff(pos: Vector3, color: Color = Color(0.45, 0.75, 1.0)) -> void:
@@ -144,6 +159,8 @@ func burst(pos: Vector3, color: Color = Color(0.35, 1.0, 0.45)) -> void:
 		return
 	var scene := get_tree().current_scene
 	_flash(scene, pos + Vector3(0, 1.2, 0), color, 0.55, 0.28)
+	LOOK.impact(scene, pos + Vector3(0, 1.1, 0), color)
+	LOOK.smoke(scene, pos + Vector3(0, 0.4, 0), Color(color.r * 0.4, color.g * 0.4, color.b * 0.35, 0.4))
 	var light := OmniLight3D.new()
 	light.light_color = color
 	light.light_energy = 8.0

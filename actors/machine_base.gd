@@ -228,6 +228,7 @@ func apply_loadout() -> void:
 					_tint(sub, paint.darkened(0.08), false)
 				if sub is MeshInstance3D and str(sub.name) == "Visor":
 					_tint(sub, Color(0.85, 0.12, 0.06), false)
+	LOOK.dress_machine(self, scale_id, paint)
 	_apply_limb_visuals()
 
 
@@ -355,7 +356,7 @@ func _kit_cyl(kit: Node3D, pos: Vector3, height: float, radius: float, color: Co
 	cyl.top_radius = radius
 	cyl.bottom_radius = radius
 	cyl.height = height
-	cyl.radial_segments = 10
+	cyl.radial_segments = 16
 	mi.mesh = cyl
 	mi.position = pos
 	mi.rotation_degrees = rot
@@ -608,6 +609,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _local_pilot():
 		return
+	if Walkthrough.active:
+		if event.is_action_pressed("ui_cancel"):
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * TURN_SENS * (0.55 if scale_id == "heavy" else 1.0))
 		_pitch = clampf(_pitch - event.relative.y * TURN_SENS, deg_to_rad(-70.0), deg_to_rad(55.0))
@@ -664,7 +669,11 @@ func _pilot_move(delta: float) -> void:
 		Fx.puff(global_position + Vector3(0, 0.35, 0), Color(0.45, 0.75, 1.0))
 	var input_dir := Vector2.ZERO
 	if not Hud.ui_busy and _local_pilot():
-		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+		if Walkthrough.active:
+			input_dir = Walkthrough.move_axis(self)
+			Walkthrough.apply_look(self, delta)
+		else:
+			input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 	var speed := _current_speed()
 	if direction != Vector3.ZERO:
@@ -1044,6 +1053,8 @@ func _spawn_limb_debris(slot: String) -> void:
 
 func take_damage(amount: float) -> void:
 	if hangar_preview:
+		return
+	if Walkthrough.active and boarded:
 		return
 	if not alive and not boarded:
 		return
