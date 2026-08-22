@@ -22,7 +22,7 @@
 
 A first-person **mech extraction shooter**. You raid from **New Dodge**, a sealed hangar city on the Tarkovic Corridor. Strip the giants. Bolt their guns. Get outta Dodge.
 
-The art below is **concept mood**, not in-engine screenshots. The shipped build is greybox grit, foundry amber, and Pale-green bloom.
+Shots below are **in-engine** — Forward+ grit, foundry amber, Pale bloom. Greybox frames. The weather is the paint.
 
 ---
 
@@ -88,10 +88,6 @@ Bolt what you can bolt. Hold the pad. Die and the bag is gone. Extract and Tam c
 ---
 
 ## Factions
-
-<p align="center">
-  <img src="docs/readme/factions.png" alt="Five occupation factions: Ash Walkers, Helix Compact, 3rd Sealed Corps, Breaker Courts, Pale Host">
-</p>
 
 | ID | Name | Creed |
 | --- | --- | --- |
@@ -229,7 +225,7 @@ Trust is still scarcer than plating.
 | `autoload/` | Run state, FX, net session |
 | `data/` | Parts and in-game copy (`world_lore.gd`) |
 | `lore/world_bible.md` | Long canon |
-| `docs/readme/` | This README’s concept art |
+| `docs/readme/` | This README’s in-engine screenshots |
 
 Cloud / headless notes for Cursor agents live in [`AGENTS.md`](AGENTS.md).
 
