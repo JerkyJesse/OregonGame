@@ -173,6 +173,7 @@ Menus: click, or arrows and Enter.
 | **LMB** | Fire |
 | **Ctrl** | Crawl |
 | **Esc** | Pause / quit |
+| **Title / Pause** | **QUALITY** cycles Low / Medium / High (saved) |
 
 Steal rival bags on extracts. New Game wipes. Continue opens Tam’s bay.
 

@@ -565,6 +565,13 @@ func _open_pause() -> void:
 	resume.text = "RESUME"
 	resume.pressed.connect(toggle_pause)
 	actions.add_child(resume)
+	var quality := Button.new()
+	quality.text = Settings.button_label()
+	quality.pressed.connect(func() -> void:
+		Settings.cycle()
+		quality.text = Settings.button_label()
+	)
+	actions.add_child(quality)
 	if RunState.in_raid:
 		var abort := Button.new()
 		abort.text = "ABORT TO NEW DODGE"

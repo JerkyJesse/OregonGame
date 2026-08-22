@@ -23,6 +23,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+Settings="*res://autoload/settings.gd"
 RunState="*res://autoload/run_state.gd"
 Hud="*res://ui/hud.tscn"
 Fx="*res://autoload/fx.gd"
@@ -111,12 +112,23 @@ dump={
 
 [rendering]
 
-anti_aliasing/quality/msaa_3d=1
+anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/screen_space_aa=1
-lights_and_shadows/directional_shadow/size=4096
-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
-lights_and_shadows/positional_shadow/atlas_size=2048
-environment/ssao/quality=2
+anti_aliasing/quality/use_debanding=true
+lights_and_shadows/directional_shadow/size=8192
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=4
+lights_and_shadows/positional_shadow/atlas_size=4096
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
+environment/ssao/quality=3
+environment/ssao/half_size=false
+environment/ssil/quality=2
+environment/ssil/half_size=true
+environment/ssr/roughness_quality=2
 environment/glow/upscale_mode=1
+environment/volumetric_fog/volume_size=160
+environment/volumetric_fog/volume_depth=128
+environment/sdfgi/probe_ray_count=2
+environment/sdfgi/frames_to_converge=2
 environment/defaults/default_clear_color=Color(0.05, 0.04, 0.035, 1)
-textures/default_filters/anisotropic_filtering_level=2
+textures/default_filters/anisotropic_filtering_level=4
+reflections/sky_reflections/ggx_samples=32
