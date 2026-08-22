@@ -5,10 +5,17 @@ const GRIT := preload("res://shaders/grit.gdshader")
 const ATMO := preload("res://shaders/atmosphere.gdshader")
 const ADD := preload("res://shaders/add_unshaded.gdshader")
 const FLESH_SH := preload("res://shaders/pale_flesh.gdshader")
+const SKY_SH := preload("res://shaders/sky_bloom.gdshader")
+const HAZE_SH := preload("res://shaders/haze_card.gdshader")
+const SPARK_SH := preload("res://shaders/soft_particle.gdshader")
+const SMOKE_SH := preload("res://shaders/soft_smoke.gdshader")
+const VISOR_SH := preload("res://shaders/visor.gdshader")
 const TEX_RUST := preload("res://assets/tex/rust_grit.jpg")
 const TEX_FLESH := preload("res://assets/tex/pale_flesh.jpg")
 const TEX_CHOIR := preload("res://assets/tex/choir_vein.jpg")
 const TEX_SPORE := preload("res://assets/tex/bloom_spore.jpg")
+
+static var _bump: NoiseTexture2D
 
 const KIND_HANGAR := "hangar"
 const KIND_YARD := "yard"
@@ -23,7 +30,25 @@ const STEEL := Color(0.28, 0.3, 0.33)
 const SOOT := Color(0.12, 0.12, 0.13)
 
 
-static func surface(color: Color, emit: float = 0.0, rust_amt: float = 0.32, metal: float = 0.22) -> ShaderMaterial:
+static func bump_tex() -> NoiseTexture2D:
+	if _bump != null:
+		return _bump
+	var n := FastNoiseLite.new()
+	n.seed = 17
+	n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	n.frequency = 0.042
+	n.fractal_octaves = 4
+	_bump = NoiseTexture2D.new()
+	_bump.noise = n
+	_bump.width = 512
+	_bump.height = 512
+	_bump.seamless = true
+	_bump.as_normal_map = true
+	_bump.bump_strength = 7.2
+	return _bump
+
+
+static func surface(color: Color, emit: float = 0.0, rust_amt: float = 0.32, metal: float = 0.22, wet: float = 0.0, panel: float = 0.0) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = GRIT
 	m.set_shader_parameter("albedo", color)
@@ -36,7 +61,11 @@ static func surface(color: Color, emit: float = 0.0, rust_amt: float = 0.32, met
 	m.set_shader_parameter("emission_energy", emit)
 	m.set_shader_parameter("emission_color", color)
 	m.set_shader_parameter("grit_tex", TEX_RUST)
-	m.set_shader_parameter("tex_mix", 0.48)
+	m.set_shader_parameter("tex_mix", 0.52)
+	m.set_shader_parameter("wetness", wet)
+	m.set_shader_parameter("bump", 1.45)
+	m.set_shader_parameter("panel_size", panel)
+	m.set_shader_parameter("displace", 0.0)
 	return m
 
 
@@ -46,20 +75,36 @@ static func emit_surface(color: Color, energy: float = 1.4, alpha: float = 1.0) 
 	if alpha < 0.99:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.roughness = 0.35
-	m.metallic = 0.15
+	m.roughness = 0.28
+	m.metallic = 0.22
 	m.emission_enabled = true
 	m.emission = color
 	m.emission_energy_multiplier = energy
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	return m
 
 
 static func paint_mat(color: Color, translucent: bool = false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
-	m.metallic = 0.52
-	m.metallic_specular = 0.6
-	m.roughness = 0.36
+	m.albedo_texture = TEX_RUST
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_triplanar_sharpness = 6.0
+	m.uv1_scale = Vector3(0.32, 0.32, 0.32)
+	m.metallic = 0.62
+	m.metallic_specular = 0.72
+	m.roughness = 0.38
+	m.roughness_texture = TEX_RUST
+	m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
+	m.normal_enabled = true
+	m.normal_texture = bump_tex()
+	m.normal_scale = 0.9
+	m.ao_enabled = true
+	m.ao_texture = TEX_RUST
+	m.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+	m.ao_light_affect = 0.45
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	if translucent:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.albedo_color.a = 0.42
@@ -68,8 +113,8 @@ static func paint_mat(color: Color, translucent: bool = false) -> StandardMateri
 		m.emission_energy_multiplier = 0.9
 	else:
 		m.emission_enabled = true
-		m.emission = color.darkened(0.35)
-		m.emission_energy_multiplier = 0.07
+		m.emission = color.darkened(0.4)
+		m.emission_energy_multiplier = 0.05
 	return m
 
 
@@ -96,14 +141,11 @@ static func choir_plate(color: Color = Color(0.18, 0.2, 0.16)) -> StandardMateri
 	return m
 
 
-static func visor_mat(color: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 0.12
-	m.metallic = 0.2
-	m.emission_enabled = true
-	m.emission = color
-	m.emission_energy_multiplier = 3.2
+static func visor_mat(color: Color) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = VISOR_SH
+	m.set_shader_parameter("albedo", color)
+	m.set_shader_parameter("energy", 3.6)
 	return m
 
 
@@ -118,145 +160,183 @@ static func additive(color: Color, energy: float = 1.8) -> ShaderMaterial:
 static func particle_draw(size: Vector2, color: Color, add: bool = true) -> QuadMesh:
 	var q := QuadMesh.new()
 	q.size = size
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if add else BaseMaterial3D.BLEND_MODE_MIX
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.albedo_color = color
-	m.vertex_color_use_as_albedo = true
-	m.disable_receive_shadows = true
+	var m := ShaderMaterial.new()
+	m.shader = SPARK_SH if add else SMOKE_SH
+	m.set_shader_parameter("color", color)
+	m.set_shader_parameter("softness", 1.8 if add else 2.4)
 	q.material = m
 	return q
 
 
 static func make_env(kind: String, fog_override: Color = Color(0, 0, 0, 0), dens_override: float = -1.0) -> Environment:
 	var e := Environment.new()
-	var sky_mat := ProceduralSkyMaterial.new()
 	match kind:
 		KIND_HANGAR, KIND_RANGE:
 			e.background_mode = Environment.BG_COLOR
-			e.background_color = Color(0.045, 0.04, 0.038) if kind == KIND_HANGAR else Color(0.06, 0.055, 0.05)
+			e.background_color = Color(0.035, 0.032, 0.028) if kind == KIND_HANGAR else Color(0.05, 0.046, 0.042)
 			e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-			e.ambient_light_color = Color(0.55, 0.42, 0.3) if kind == KIND_HANGAR else Color(0.42, 0.38, 0.32)
-			e.ambient_light_energy = 0.28 if kind == KIND_HANGAR else 0.34
+			e.ambient_light_color = Color(0.62, 0.44, 0.28) if kind == KIND_HANGAR else Color(0.42, 0.38, 0.32)
+			e.ambient_light_energy = 0.24 if kind == KIND_HANGAR else 0.3
 			e.fog_enabled = true
-			e.fog_light_color = Color(0.22, 0.16, 0.12) if kind == KIND_HANGAR else Color(0.2, 0.18, 0.15)
-			e.fog_density = 0.012 if kind == KIND_HANGAR else 0.006
-			e.volumetric_fog_enabled = kind == KIND_HANGAR
-			e.volumetric_fog_density = 0.016
-			e.volumetric_fog_albedo = Color(0.55, 0.4, 0.28)
-			e.volumetric_fog_emission = Color(0.18, 0.08, 0.02)
-			e.volumetric_fog_emission_energy = 0.35
-			e.volumetric_fog_anisotropy = 0.4
-			e.volumetric_fog_length = 28.0
-			e.volumetric_fog_ambient_inject = 0.25
-		KIND_PIPE:
-			_sky(sky_mat, Color(0.12, 0.1, 0.08), Color(0.32, 0.28, 0.18), Color(0.08, 0.09, 0.07), Color(0.28, 0.24, 0.16))
-			e.background_mode = Environment.BG_SKY
-			e.sky = _sky_res(sky_mat)
-			e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-			e.ambient_light_sky_contribution = 0.55
-			e.ambient_light_energy = 0.55
-			e.fog_enabled = true
-			e.fog_light_color = Color(0.3, 0.24, 0.16)
-			e.fog_density = 0.014
-			e.fog_aerial_perspective = 0.55
-			e.fog_sun_scatter = 0.18
-			e.fog_height = 1.5
-			e.fog_height_density = 0.06
+			e.fog_light_color = Color(0.2, 0.14, 0.1) if kind == KIND_HANGAR else Color(0.18, 0.16, 0.14)
+			e.fog_density = 0.014 if kind == KIND_HANGAR else 0.007
 			e.volumetric_fog_enabled = true
-			e.volumetric_fog_density = 0.02
-			e.volumetric_fog_albedo = Color(0.42, 0.36, 0.22)
-			e.volumetric_fog_emission = Color(0.12, 0.18, 0.06)
-			e.volumetric_fog_emission_energy = 0.4
-			e.volumetric_fog_anisotropy = 0.25
-			e.volumetric_fog_length = 72.0
-			e.volumetric_fog_sky_affect = 0.75
-		KIND_TITLE:
-			_sky(sky_mat, Color(0.18, 0.1, 0.06), Color(0.55, 0.32, 0.14), Color(0.08, 0.06, 0.04), Color(0.32, 0.18, 0.08))
-			e.background_mode = Environment.BG_SKY
-			e.sky = _sky_res(sky_mat)
-			e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-			e.ambient_light_energy = 0.7
-			e.fog_enabled = true
-			e.fog_light_color = Color(0.5, 0.32, 0.14)
-			e.fog_density = 0.01
-			e.fog_sun_scatter = 0.35
-			e.volumetric_fog_enabled = true
-			e.volumetric_fog_density = 0.022
-			e.volumetric_fog_albedo = Color(0.7, 0.45, 0.2)
-			e.volumetric_fog_length = 80.0
-		_:
-			_sky(sky_mat, Color(0.22, 0.12, 0.07), Color(0.62, 0.42, 0.2), Color(0.1, 0.08, 0.06), Color(0.38, 0.24, 0.12))
-			e.background_mode = Environment.BG_SKY
-			e.sky = _sky_res(sky_mat)
-			e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-			e.ambient_light_sky_contribution = 0.7
-			e.ambient_light_energy = 0.62
-			e.fog_enabled = true
-			e.fog_light_color = Color(0.55, 0.38, 0.2)
-			e.fog_density = 0.008
-			e.fog_aerial_perspective = 0.62
-			e.fog_sun_scatter = 0.32
-			e.fog_height = 0.4
-			e.fog_height_density = 0.045
-			e.volumetric_fog_enabled = true
-			e.volumetric_fog_density = 0.012
-			e.volumetric_fog_albedo = Color(0.72, 0.5, 0.28)
+			e.volumetric_fog_density = 0.018 if kind == KIND_HANGAR else 0.01
+			e.volumetric_fog_albedo = Color(0.58, 0.4, 0.26)
 			e.volumetric_fog_emission = Color(0.2, 0.08, 0.02)
-			e.volumetric_fog_emission_energy = 0.25
-			e.volumetric_fog_anisotropy = 0.35
+			e.volumetric_fog_emission_energy = 0.42
+			e.volumetric_fog_anisotropy = 0.45
+			e.volumetric_fog_length = 32.0
+			e.volumetric_fog_ambient_inject = 0.28
+		KIND_PIPE:
+			e.background_mode = Environment.BG_SKY
+			e.sky = _bloom_sky(Color(0.1, 0.09, 0.07), Color(0.3, 0.26, 0.16), Color(0.07, 0.08, 0.06), Color(0.24, 0.22, 0.14), 0.85)
+			e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+			e.ambient_light_sky_contribution = 0.6
+			e.ambient_light_energy = 0.52
+			e.fog_enabled = true
+			e.fog_light_color = Color(0.28, 0.24, 0.16)
+			e.fog_density = 0.016
+			e.fog_aerial_perspective = 0.62
+			e.fog_sun_scatter = 0.22
+			e.fog_height = 1.2
+			e.fog_height_density = 0.07
+			e.volumetric_fog_enabled = true
+			e.volumetric_fog_density = 0.024
+			e.volumetric_fog_albedo = Color(0.4, 0.36, 0.2)
+			e.volumetric_fog_emission = Color(0.14, 0.22, 0.08)
+			e.volumetric_fog_emission_energy = 0.55
+			e.volumetric_fog_anisotropy = 0.28
+			e.volumetric_fog_length = 78.0
+			e.volumetric_fog_sky_affect = 0.8
+		KIND_TITLE:
+			e.background_mode = Environment.BG_SKY
+			e.sky = _bloom_sky(Color(0.14, 0.07, 0.04), Color(0.52, 0.28, 0.1), Color(0.06, 0.04, 0.03), Color(0.3, 0.16, 0.07), 0.95)
+			e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+			e.ambient_light_energy = 0.68
+			e.fog_enabled = true
+			e.fog_light_color = Color(0.48, 0.3, 0.12)
+			e.fog_density = 0.012
+			e.fog_aerial_perspective = 0.55
+			e.fog_sun_scatter = 0.4
+			e.volumetric_fog_enabled = true
+			e.volumetric_fog_density = 0.026
+			e.volumetric_fog_albedo = Color(0.68, 0.42, 0.18)
+			e.volumetric_fog_emission = Color(0.18, 0.28, 0.08)
+			e.volumetric_fog_emission_energy = 0.5
 			e.volumetric_fog_length = 90.0
-			e.volumetric_fog_sky_affect = 0.85
-			e.volumetric_fog_ambient_inject = 0.4
+			e.volumetric_fog_sky_affect = 0.9
+		_:
+			e.background_mode = Environment.BG_SKY
+			e.sky = _bloom_sky(Color(0.16, 0.08, 0.04), Color(0.58, 0.36, 0.16), Color(0.08, 0.06, 0.04), Color(0.34, 0.2, 0.1), 1.05)
+			e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+			e.ambient_light_sky_contribution = 0.72
+			e.ambient_light_energy = 0.58
+			e.fog_enabled = true
+			e.fog_light_color = Color(0.5, 0.34, 0.16)
+			e.fog_density = 0.009
+			e.fog_aerial_perspective = 0.7
+			e.fog_sun_scatter = 0.38
+			e.fog_height = 0.35
+			e.fog_height_density = 0.05
+			e.volumetric_fog_enabled = true
+			e.volumetric_fog_density = 0.014
+			e.volumetric_fog_albedo = Color(0.68, 0.46, 0.24)
+			e.volumetric_fog_emission = Color(0.16, 0.22, 0.06)
+			e.volumetric_fog_emission_energy = 0.38
+			e.volumetric_fog_anisotropy = 0.38
+			e.volumetric_fog_length = 110.0
+			e.volumetric_fog_sky_affect = 0.9
+			e.volumetric_fog_ambient_inject = 0.42
 	if fog_override.a > 0.0:
 		e.fog_light_color = fog_override
 	if dens_override >= 0.0:
 		e.fog_density = dens_override
-	e.tonemap_mode = Environment.TONE_MAPPER_ACES
-	e.tonemap_exposure = 1.08
-	e.ssao_enabled = true
-	e.ssao_radius = 1.35
-	e.ssao_intensity = 1.7
-	e.ssao_power = 1.6
-	e.glow_enabled = true
-	e.glow_normalized = true
-	e.glow_intensity = 0.72
-	e.glow_bloom = 0.18
-	e.glow_hdr_threshold = 0.72
-	e.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
-	e.adjustment_enabled = true
-	e.adjustment_brightness = 1.02
-	e.adjustment_contrast = 1.08
-	e.adjustment_saturation = 1.12
+	_finish_env(e, kind)
 	return e
 
 
-static func _sky(mat: ProceduralSkyMaterial, top: Color, hor: Color, ground: Color, ghor: Color) -> void:
-	mat.sky_top_color = top
-	mat.sky_horizon_color = hor
-	mat.ground_bottom_color = ground
-	mat.ground_horizon_color = ghor
-	mat.sun_angle_max = 28.0
-	mat.sun_curve = 0.12
-	mat.sky_energy_multiplier = 1.15
-	mat.ground_energy_multiplier = 0.7
-	mat.use_debanding = true
+static func retune_environment(e: Environment, kind: String) -> void:
+	if e == null:
+		return
+	_finish_env(e, kind)
 
 
-static func _sky_res(mat: ProceduralSkyMaterial) -> Sky:
+static func _finish_env(e: Environment, kind: String) -> void:
+	var q := Settings.quality if Engine.get_main_loop() else "high"
+	e.tonemap_mode = Environment.TONE_MAPPER_ACES
+	e.tonemap_exposure = 0.96 if kind != KIND_HANGAR and kind != KIND_RANGE else 1.02
+	e.ssao_enabled = q != "low"
+	e.ssao_radius = 1.55
+	e.ssao_intensity = 1.28 if q == "high" else 1.05
+	e.ssao_power = 1.45
+	e.ssao_horizon = 0.05
+	e.ssao_sharpness = 0.82
+	e.ssao_light_affect = 0.45
+	e.ssil_enabled = q == "high"
+	e.ssil_radius = 2.1
+	e.ssil_intensity = 0.92
+	e.ssil_sharpness = 0.84
+	e.ssr_enabled = q == "high" and kind != KIND_RANGE
+	e.ssr_max_steps = 56 if q == "high" else 24
+	e.ssr_fade_in = 0.12
+	e.ssr_fade_out = 2.0
+	e.ssr_depth_tolerance = 0.18
+	e.sdfgi_enabled = q != "low"
+	e.sdfgi_use_occlusion = q == "high"
+	e.sdfgi_read_sky_light = kind != KIND_HANGAR and kind != KIND_RANGE
+	e.sdfgi_bounce_feedback = 0.48
+	e.sdfgi_cascades = 4 if q == "high" else 2
+	e.sdfgi_min_cell_size = 0.3 if kind == KIND_HANGAR else 0.62
+	e.sdfgi_energy = 1.12
+	e.sdfgi_normal_bias = 1.12
+	e.sdfgi_probe_bias = 1.05
+	if e.background_mode == Environment.BG_SKY:
+		e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	e.glow_enabled = true
+	e.glow_normalized = true
+	e.glow_intensity = 0.58 if q == "high" else (0.42 if q == "medium" else 0.28)
+	e.glow_bloom = 0.26 if q == "high" else (0.16 if q == "medium" else 0.08)
+	e.glow_hdr_threshold = 0.56
+	e.glow_hdr_scale = 1.9
+	e.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT if kind == KIND_HANGAR else Environment.GLOW_BLEND_MODE_SCREEN
+	e.set_glow_level(1, 0.32)
+	e.set_glow_level(2, 0.88)
+	e.set_glow_level(3, 1.05)
+	e.set_glow_level(4, 0.78)
+	e.set_glow_level(5, 0.42)
+	e.adjustment_enabled = true
+	e.adjustment_brightness = 1.0
+	e.adjustment_contrast = 1.12
+	e.adjustment_saturation = 1.08
+	e.volumetric_fog_enabled = q != "low"
+	e.volumetric_fog_temporal_reprojection_enabled = q != "low"
+	e.volumetric_fog_temporal_reprojection_amount = 0.93
+	e.volumetric_fog_gi_inject = 0.7 if q == "high" else 0.35
+	e.volumetric_fog_detail_spread = 2.0 if q == "high" else 1.2
+
+
+static func _bloom_sky(top: Color, hor: Color, ground: Color, ghor: Color, pale_amt: float) -> Sky:
+	var mat := ShaderMaterial.new()
+	mat.shader = SKY_SH
+	mat.set_shader_parameter("sky_top", top)
+	mat.set_shader_parameter("sky_horizon", hor)
+	mat.set_shader_parameter("ground_bottom", ground)
+	mat.set_shader_parameter("ground_horizon", ghor)
+	mat.set_shader_parameter("pale_color", PALE)
+	mat.set_shader_parameter("pale_amount", pale_amt)
+	mat.set_shader_parameter("dust", 0.5)
 	var s := Sky.new()
 	s.sky_material = mat
 	s.process_mode = Sky.PROCESS_MODE_REALTIME
-	s.radiance_size = Sky.RADIANCE_SIZE_256
+	s.radiance_size = Sky.RADIANCE_SIZE_256 if Settings.is_high() else (Sky.RADIANCE_SIZE_128 if Settings.quality == "medium" else Sky.RADIANCE_SIZE_64)
 	return s
 
 
 static func apply(world: Node3D, kind: String) -> void:
 	if world == null:
 		return
+	world.set_meta("look_kind", kind)
 	if world.has_node("WorldEnvironment"):
 		(world.get_node("WorldEnvironment") as WorldEnvironment).environment = make_env(kind)
 	_style_lights(world, kind)
@@ -277,7 +357,10 @@ static func apply(world: Node3D, kind: String) -> void:
 		_:
 			_dress_yard(dress)
 	dust(dress, _dust_box(kind), _dust_color(kind), _dust_count(kind))
+	if kind == KIND_PIPE or kind == KIND_YARD:
+		dust(dress, _dust_box(kind) * Vector3(0.7, 1.4, 0.7), Color(0.5, 0.92, 0.32, 0.12), 48)
 	call_tune_cameras(world)
+	Settings.apply()
 
 
 static func _dust_box(kind: String) -> Vector3:
@@ -301,24 +384,26 @@ static func _dust_color(kind: String) -> Color:
 
 
 static func _dust_count(kind: String) -> int:
+	var n := 128
 	if kind == KIND_RANGE:
-		return 40
-	if kind == KIND_HANGAR:
-		return 64
-	return 96
+		n = 56
+	elif kind == KIND_HANGAR:
+		n = 80
+	return maxi(8, int(round(float(n) * Settings.dust_scale())))
 
 
 static func _style_lights(world: Node3D, kind: String) -> void:
 	if world.has_node("Sun"):
 		var sun := world.get_node("Sun") as DirectionalLight3D
 		sun.shadow_enabled = true
-		sun.shadow_blur = 1.35
-		sun.shadow_bias = 0.06
-		sun.shadow_normal_bias = 1.4
-		sun.light_angular_distance = 0.9
-		sun.light_specular = 0.55
-		sun.light_volumetric_fog_energy = 1.8
+		sun.shadow_blur = 1.55
+		sun.shadow_bias = 0.04
+		sun.shadow_normal_bias = 1.15
+		sun.light_angular_distance = 1.15
+		sun.light_specular = 0.62
+		sun.light_volumetric_fog_energy = 2.15
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		sun.directional_shadow_pancake_size = 6.0
 		match kind:
 			KIND_HANGAR:
 				sun.light_color = Color(1.0, 0.72, 0.42)
@@ -333,17 +418,18 @@ static func _style_lights(world: Node3D, kind: String) -> void:
 				sun.light_energy = 0.95
 				sun.directional_shadow_max_distance = 40.0
 			_:
-				sun.light_color = Color(1.0, 0.58, 0.3)
-				sun.light_energy = 1.55
-				sun.directional_shadow_max_distance = 130.0
+				sun.light_color = Color(1.0, 0.54, 0.26)
+				sun.light_energy = 1.72
+				sun.directional_shadow_max_distance = 150.0
 	if world.has_node("BayLight"):
 		var bay := world.get_node("BayLight") as OmniLight3D
 		bay.light_color = Color(1.0, 0.58, 0.22)
 		bay.light_energy = 5.2
 		bay.omni_range = 20.0
-		bay.light_volumetric_fog_energy = 1.6
+		bay.light_volumetric_fog_energy = 2.1
 		bay.shadow_enabled = true
-		bay.shadow_blur = 1.4
+		bay.shadow_blur = 1.6
+		bay.light_specular = 0.7
 	if world.has_node("FillLight"):
 		var fill := world.get_node("FillLight") as OmniLight3D
 		fill.light_color = Color(0.35, 0.55, 0.72)
@@ -361,7 +447,7 @@ static func _style_lights(world: Node3D, kind: String) -> void:
 			var rim := DirectionalLight3D.new()
 			rim.name = "PaleRim"
 			rim.light_color = Color(0.45, 0.85, 0.38)
-			rim.light_energy = 0.32 if kind == KIND_YARD else 0.22
+			rim.light_energy = 0.48 if kind == KIND_YARD else 0.32
 			rim.shadow_enabled = false
 			rim.rotation_degrees = Vector3(-18, 155, 0)
 			rim.light_specular = 0.2
@@ -374,26 +460,28 @@ static func _paint_shell(world: Node3D, kind: String) -> void:
 	var rust_amt := 0.38
 	match kind:
 		KIND_HANGAR:
-			floor_col = Color(0.18, 0.18, 0.19)
-			wall_col = Color(0.14, 0.145, 0.15)
+			floor_col = Color(0.16, 0.16, 0.175)
+			wall_col = Color(0.13, 0.135, 0.14)
 			rust_amt = 0.22
 		KIND_PIPE:
-			floor_col = Color(0.2, 0.17, 0.13)
-			wall_col = Color(0.15, 0.14, 0.12)
+			floor_col = Color(0.18, 0.15, 0.11)
+			wall_col = Color(0.14, 0.13, 0.11)
 			rust_amt = 0.45
 		KIND_RANGE:
-			floor_col = Color(0.16, 0.16, 0.155)
-			wall_col = Color(0.12, 0.12, 0.12)
+			floor_col = Color(0.15, 0.15, 0.145)
+			wall_col = Color(0.11, 0.11, 0.11)
 			rust_amt = 0.12
 		_:
-			floor_col = Color(0.22, 0.18, 0.14)
-			wall_col = Color(0.17, 0.15, 0.13)
-	_set_csg_mat(world, "Floor", surface(floor_col, 0.0, rust_amt, 0.12))
+			floor_col = Color(0.2, 0.16, 0.12)
+			wall_col = Color(0.16, 0.14, 0.12)
+	var floor_wet := 0.42 if kind == KIND_HANGAR else (0.12 if kind == KIND_RANGE else 0.32)
+	var floor_panel := 3.6 if kind == KIND_HANGAR else (5.5 if kind == KIND_RANGE else 8.0)
+	_set_csg_mat(world, "Floor", surface(floor_col, 0.0, rust_amt, 0.14, floor_wet, floor_panel))
 	for n in ["WallN", "WallS", "WallW", "WallE", "WallBack", "WallFront", "WallLeft", "WallRight", "Back", "Ceiling", "Catwalk"]:
-		_set_csg_mat(world, n, surface(wall_col, 0.0, rust_amt * 0.7, 0.18))
-	_set_csg_mat(world, "Ruin", surface(Color(0.32, 0.2, 0.12), 0.0, 0.55, 0.08))
-	_set_csg_mat(world, "Trim", emit_surface(AMBER, 1.1))
-	_set_csg_mat(world, "Bay", surface(SOOT, 0.0, 0.15, 0.3))
+		_set_csg_mat(world, n, surface(wall_col, 0.0, rust_amt * 0.7, 0.2, 0.0, 6.5))
+	_set_csg_mat(world, "Ruin", surface(Color(0.32, 0.2, 0.12), 0.0, 0.55, 0.08, 0.1, 4.0))
+	_set_csg_mat(world, "Trim", emit_surface(AMBER, 1.35))
+	_set_csg_mat(world, "Bay", surface(SOOT, 0.0, 0.15, 0.3, 0.0, 5.0))
 
 
 static func _set_csg_mat(world: Node, name: String, mat: Material) -> void:
@@ -422,28 +510,32 @@ static func _atmosphere(world: Node, kind: String) -> void:
 	mat.shader = ATMO
 	match kind:
 		KIND_HANGAR:
-			mat.set_shader_parameter("tint", Color(1.05, 0.92, 0.78))
-			mat.set_shader_parameter("vignette", 0.55)
+			mat.set_shader_parameter("tint", Color(1.04, 0.9, 0.76))
+			mat.set_shader_parameter("vignette", 0.58)
 			mat.set_shader_parameter("pale", 0.0)
-			mat.set_shader_parameter("grain", 0.05)
+			mat.set_shader_parameter("grain", 0.042)
 		KIND_PIPE:
-			mat.set_shader_parameter("tint", Color(0.95, 0.9, 0.78))
-			mat.set_shader_parameter("vignette", 0.5)
-			mat.set_shader_parameter("pale", 0.12)
-			mat.set_shader_parameter("grain", 0.055)
+			mat.set_shader_parameter("tint", Color(0.94, 0.9, 0.76))
+			mat.set_shader_parameter("vignette", 0.52)
+			mat.set_shader_parameter("pale", 0.14)
+			mat.set_shader_parameter("grain", 0.05)
 		KIND_RANGE:
 			mat.set_shader_parameter("tint", Color(1.0, 0.95, 0.88))
-			mat.set_shader_parameter("vignette", 0.4)
+			mat.set_shader_parameter("vignette", 0.38)
 			mat.set_shader_parameter("pale", 0.0)
-			mat.set_shader_parameter("grain", 0.03)
+			mat.set_shader_parameter("grain", 0.028)
 		_:
-			mat.set_shader_parameter("tint", Color(1.06, 0.9, 0.72))
-			mat.set_shader_parameter("vignette", 0.48)
-			mat.set_shader_parameter("pale", 0.08)
-			mat.set_shader_parameter("grain", 0.048)
+			mat.set_shader_parameter("tint", Color(1.05, 0.88, 0.7))
+			mat.set_shader_parameter("vignette", 0.5)
+			mat.set_shader_parameter("pale", 0.1)
+			mat.set_shader_parameter("grain", 0.044)
 	mat.set_shader_parameter("pale_color", PALE)
-	mat.set_shader_parameter("contrast", 1.1)
-	mat.set_shader_parameter("saturation", 1.16)
+	mat.set_shader_parameter("contrast", 1.12)
+	mat.set_shader_parameter("saturation", 1.1)
+	var grain: Variant = mat.get_shader_parameter("grain")
+	var base_grain := float(grain) if grain != null else 0.04
+	mat.set_meta("base_grain", base_grain)
+	mat.set_shader_parameter("grain", base_grain * Settings.grain_scale())
 	rect.material = mat
 	layer.add_child(rect)
 	world.set_meta("look_atmo_mat", mat)
@@ -465,6 +557,7 @@ static func dust(parent: Node3D, extents: Vector3, color: Color, amount: int = 8
 	p.preprocess = 6.0
 	p.visibility_aabb = AABB(-extents, extents * 2.0)
 	p.position = Vector3(0, extents.y * 0.45, 0)
+	p.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	pm.emission_shape_scale = extents
@@ -483,7 +576,7 @@ static func dust(parent: Node3D, extents: Vector3, color: Color, amount: int = 8
 	parent.add_child(p)
 
 
-static func smoke(parent: Node3D, pos: Vector3, color: Color = Color(0.18, 0.16, 0.14, 0.45)) -> void:
+static func smoke(parent: Node, pos: Vector3, color: Color = Color(0.18, 0.16, 0.14, 0.45)) -> void:
 	var p := GPUParticles3D.new()
 	p.name = "LookSmoke"
 	p.amount = 18
@@ -491,6 +584,7 @@ static func smoke(parent: Node3D, pos: Vector3, color: Color = Color(0.18, 0.16,
 	p.preprocess = 1.5
 	p.position = pos
 	p.visibility_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 8, 6))
+	p.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 	pm.emission_sphere_radius = 0.35
@@ -515,6 +609,7 @@ static func sparkle(parent: Node3D, pos: Vector3, color: Color, radius: float = 
 	p.preprocess = 0.8
 	p.position = pos
 	p.visibility_aabb = AABB(Vector3(-2, -2, -2), Vector3(4, 4, 4))
+	p.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 	pm.emission_sphere_radius = radius
@@ -549,8 +644,8 @@ static func add_sphere(parent: Node3D, pos: Vector3, radius: float, mat: Materia
 	var sph := SphereMesh.new()
 	sph.radius = radius
 	sph.height = radius * 2.0
-	sph.radial_segments = 14
-	sph.rings = 8
+	sph.radial_segments = 20
+	sph.rings = 12
 	sph.material = mat
 	mi.mesh = sph
 	mi.position = pos
@@ -566,7 +661,7 @@ static func add_cyl(parent: Node3D, pos: Vector3, height: float, radius: float, 
 	cyl.top_radius = radius
 	cyl.bottom_radius = radius
 	cyl.height = height
-	cyl.radial_segments = 10
+	cyl.radial_segments = 16
 	cyl.material = emit_surface(color, emit) if emit > 0.0 else surface(color, 0.0, 0.4, 0.4)
 	mi.mesh = cyl
 	mi.position = pos
@@ -585,22 +680,22 @@ static func add_lamp(parent: Node3D, pos: Vector3, color: Color, energy: float =
 	spot.light_energy = energy
 	spot.spot_range = range
 	spot.spot_angle = 42.0
-	spot.spot_attenuation = 0.7
-	spot.shadow_enabled = false
-	spot.light_volumetric_fog_energy = 2.2
+	spot.spot_attenuation = 0.65
+	spot.shadow_enabled = energy >= 3.5
+	spot.shadow_blur = 1.55
+	spot.light_specular = 0.75
+	spot.light_volumetric_fog_energy = 2.6
 	parent.add_child(spot)
+	_add_fog(parent, pos + Vector3(0, -2.4, 0), Vector3(5.2, 6.0, 5.2), color, color * Color(0.5, 0.4, 0.25), 0.1)
 
 
 static func _haze_card(parent: Node3D, pos: Vector3, size: Vector2, color: Color, yaw: float) -> void:
 	var mi := MeshInstance3D.new()
 	var q := QuadMesh.new()
 	q.size = size
-	var m := StandardMaterial3D.new()
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = color
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.disable_receive_shadows = true
+	var m := ShaderMaterial.new()
+	m.shader = HAZE_SH
+	m.set_shader_parameter("color", color)
 	q.material = m
 	mi.mesh = q
 	mi.position = pos
@@ -612,38 +707,51 @@ static func _haze_card(parent: Node3D, pos: Vector3, size: Vector2, color: Color
 static func _dress_yard(d: Node3D) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 17
+	_ground_skin(d, Vector2(108, 88), Color(0.2, 0.16, 0.12), 0.34, 0.26)
 	add_cyl(d, Vector3(-32, 6, -20), 12.0, 0.55, Color(0.22, 0.2, 0.17))
 	add_cyl(d, Vector3(8, 9, 22), 18.0, 0.7, Color(0.2, 0.18, 0.15))
 	add_cyl(d, Vector3(36, 5, -28), 10.0, 0.45, STEEL, Vector3(0, 0, 90), 0.0)
 	add_cyl(d, Vector3(-18, 4.5, 30), 22.0, 0.4, Color(0.32, 0.22, 0.14), Vector3(0, 0, 90))
-	add_mesh(d, Vector3(-40, 0.04, 0), Vector3(8, 0.05, 1.1), AMBER, 0.7, 0.0)
+	add_mesh(d, Vector3(-40, 0.04, 0), Vector3(8, 0.05, 1.1), AMBER, 0.9, 0.0)
 	add_mesh(d, Vector3(0, 0.04, 18), Vector3(1.0, 0.05, 10), Color(0.12, 0.12, 0.1))
 	add_mesh(d, Vector3(22, 0.03, -12), Vector3(14, 0.04, 0.8), Color(0.16, 0.1, 0.06), 0.0, 0.6)
-	for i in 18:
+	for i in 22:
 		var p := Vector3(rng.randf_range(-46, 46), 0.04, rng.randf_range(-38, 38))
 		var s := Vector3(rng.randf_range(1.2, 3.8), 0.05, rng.randf_range(0.8, 2.4))
 		add_mesh(d, p, s, Color(0.18 + rng.randf() * 0.08, 0.12, 0.08), 0.0, rng.randf_range(0.2, 0.7))
 	for i in 7:
 		var crate := Vector3(rng.randf_range(-30, 30), 0.55, rng.randf_range(-24, 24))
 		add_mesh(d, crate, Vector3(1.1, 1.1, 1.1), Color(0.34, 0.28, 0.18), 0.0, 0.25)
-	_haze_card(d, Vector3(0, 9, -43.2), Vector2(100, 20), Color(0.55, 0.32, 0.12, 0.16), 0)
-	_haze_card(d, Vector3(0, 9, 43.2), Vector2(100, 20), Color(0.4, 0.28, 0.12, 0.14), 180)
-	_haze_card(d, Vector3(-53, 9, 0), Vector2(84, 20), Color(0.35, 0.42, 0.18, 0.1), 90)
-	_haze_card(d, Vector3(53, 9, 0), Vector2(84, 20), Color(0.55, 0.3, 0.1, 0.12), -90)
+	for i in 5:
+		_add_puddle(d, Vector3(rng.randf_range(-28, 28), 0.025, rng.randf_range(-22, 22)), Vector2(rng.randf_range(2.4, 5.5), rng.randf_range(1.4, 3.2)))
+	_haze_card(d, Vector3(0, 11, -43.4), Vector2(110, 26), Color(0.58, 0.32, 0.1, 0.22), 0)
+	_haze_card(d, Vector3(0, 11, 43.4), Vector2(110, 26), Color(0.38, 0.26, 0.1, 0.18), 180)
+	_haze_card(d, Vector3(-53, 11, 0), Vector2(90, 26), Color(0.32, 0.42, 0.16, 0.14), 90)
+	_haze_card(d, Vector3(53, 11, 0), Vector2(90, 26), Color(0.55, 0.28, 0.08, 0.16), -90)
+	_haze_card(d, Vector3(8, 16, -42), Vector2(70, 18), Color(0.45, 0.85, 0.28, 0.18), 0)
+	occupation_walker(d, Vector3(28, 0, -38), 200.0, 1.15)
+	occupation_walker(d, Vector3(-36, 0, -34), 155.0, 0.82)
+	kneeling_frame(d, Vector3(-8, 0, -18), 28.0, 1.0)
 	var omni := OmniLight3D.new()
 	omni.position = Vector3(-26, 4.5, -8)
 	omni.light_color = Color(1.0, 0.4, 0.12)
-	omni.light_energy = 3.4
-	omni.omni_range = 14.0
-	omni.light_volumetric_fog_energy = 1.5
+	omni.light_energy = 3.8
+	omni.omni_range = 16.0
+	omni.light_volumetric_fog_energy = 1.8
+	omni.shadow_enabled = true
 	d.add_child(omni)
 	var pale := OmniLight3D.new()
-	pale.position = Vector3(0, 10, -36)
+	pale.position = Vector3(0, 12, -36)
 	pale.light_color = PALE
-	pale.light_energy = 2.2
-	pale.omni_range = 22.0
+	pale.light_energy = 3.4
+	pale.omni_range = 28.0
+	pale.light_volumetric_fog_energy = 2.4
 	d.add_child(pale)
-	for i in 10:
+	_add_fog(d, Vector3(6, 14, -38), Vector3(70, 22, 18), Color(0.45, 0.7, 0.28), PALE, 0.07)
+	_add_fog(d, Vector3(-26, 3.2, -8), Vector3(10, 6, 10), Color(0.7, 0.35, 0.12), Color(0.8, 0.3, 0.05), 0.08)
+	smoke(d, Vector3(-32, 1.2, -20), Color(0.14, 0.12, 0.1, 0.5))
+	smoke(d, Vector3(8, 1.4, 22), Color(0.16, 0.14, 0.12, 0.42))
+	for i in 12:
 		var gp := Vector3(rng.randf_range(-44, 44), 0.0, rng.randf_range(-36, 36))
 		if gp.length() < 14.0:
 			continue
@@ -651,6 +759,7 @@ static func _dress_yard(d: Node3D) -> void:
 
 
 static func _dress_pipeline(d: Node3D) -> void:
+	_ground_skin(d, Vector2(88, 62), Color(0.18, 0.15, 0.11), 0.5, 0.18)
 	add_cyl(d, Vector3(0, 3.2, -6), 70.0, 0.7, Color(0.38, 0.22, 0.12), Vector3(0, 0, 90))
 	add_cyl(d, Vector3(0, 5.4, 6), 64.0, 0.45, STEEL, Vector3(0, 0, 90), 0.15)
 	add_cyl(d, Vector3(-20, 4, 0), 8.0, 2.0, RUST)
@@ -659,16 +768,21 @@ static func _dress_pipeline(d: Node3D) -> void:
 	add_lamp(d, Vector3(-12, 9.2, 0), Color(1.0, 0.55, 0.2), 4.0, 18.0)
 	add_lamp(d, Vector3(12, 9.2, 0), Color(1.0, 0.55, 0.2), 4.0, 18.0)
 	add_lamp(d, Vector3(0, 9.5, 12), PALE, 2.4, 16.0)
-	_haze_card(d, Vector3(0, 8, -30), Vector2(70, 18), Color(0.28, 0.22, 0.12, 0.2), 0)
+	_haze_card(d, Vector3(0, 9, -30), Vector2(78, 22), Color(0.28, 0.22, 0.12, 0.24), 0)
+	_add_puddle(d, Vector3(2, 0.03, 10), Vector2(6.5, 3.2))
+	_add_puddle(d, Vector3(-8, 0.03, -4), Vector2(4.0, 2.4))
 	var leak := OmniLight3D.new()
 	leak.position = Vector3(0, 6, 14)
 	leak.light_color = PALE
-	leak.light_energy = 3.5
-	leak.omni_range = 16.0
+	leak.light_energy = 4.2
+	leak.omni_range = 18.0
+	leak.light_volumetric_fog_energy = 2.6
 	d.add_child(leak)
+	_add_fog(d, Vector3(0, 4.5, 14), Vector3(10, 8, 8), Color(0.4, 0.75, 0.28), PALE, 0.16)
 	pale_growth(d, Vector3(0, 0, 14.5), 9)
 	pale_growth(d, Vector3(-16, 0, -8), 12)
 	pale_growth(d, Vector3(18, 0, 8), 15)
+	smoke(d, Vector3(0, 2.2, 14), Color(0.4, 0.7, 0.22, 0.35))
 
 
 static func _dress_hangar(d: Node3D, world: Node3D) -> void:
@@ -684,6 +798,13 @@ static func _dress_hangar(d: Node3D, world: Node3D) -> void:
 	add_cyl(d, Vector3(18, 6, 8), 14.0, 0.16, Color(0.22, 0.18, 0.14), Vector3(0, 0, 90))
 	add_lamp(d, Vector3(12, 4.2, 12), Color(0.35, 0.95, 0.55), 3.0, 10.0)
 	add_mesh(d, Vector3(14, 0.7, -12), Vector3(1.6, 1.4, 1.2), STEEL, 0.0, 0.2)
+	_add_puddle(d, Vector3(0, 0.02, 4), Vector2(7.5, 3.5))
+	_add_puddle(d, Vector3(-7, 0.02, -6), Vector2(4.2, 2.6))
+	add_mesh(d, Vector3(-16, 8.6, 0), Vector3(8.0, 0.22, 0.35), Color(0.22, 0.2, 0.18), 0.0, 0.2)
+	add_mesh(d, Vector3(16, 8.6, 0), Vector3(8.0, 0.22, 0.35), Color(0.22, 0.2, 0.18), 0.0, 0.2)
+	add_mesh(d, Vector3(0, 9.4, -8), Vector3(28, 0.18, 0.4), Color(0.18, 0.17, 0.16), 0.0, 0.15)
+	_add_fog(d, Vector3(0, 4.5, 0), Vector3(16, 8, 12), Color(0.7, 0.45, 0.22), Color(0.5, 0.22, 0.06), 0.05)
+	smoke(d, Vector3(-14, 1.4, -10), Color(0.12, 0.11, 0.1, 0.35))
 	var screen := world.get_node_or_null("DeployConsole/Screen") as MeshInstance3D
 	if screen:
 		screen.material_override = emit_surface(Color(0.25, 0.85, 0.95), 2.6)
@@ -693,6 +814,7 @@ static func _dress_range(d: Node3D) -> void:
 	add_lamp(d, Vector3(-6, 7.2, -8), Color(1.0, 0.75, 0.45), 3.2, 16.0)
 	add_lamp(d, Vector3(6, 7.2, -8), Color(1.0, 0.75, 0.45), 3.2, 16.0)
 	add_mesh(d, Vector3(0, 0.03, -8), Vector3(0.4, 0.04, 28), Color(0.7, 0.2, 0.1), 0.6, 0.0)
+	_add_puddle(d, Vector3(0, 0.02, -4), Vector2(5.5, 2.4))
 	var spot := SpotLight3D.new()
 	spot.position = Vector3(0, 6, -20)
 	spot.rotation_degrees = Vector3(-35, 0, 0)
@@ -700,7 +822,8 @@ static func _dress_range(d: Node3D) -> void:
 	spot.light_energy = 4.5
 	spot.spot_range = 22.0
 	spot.spot_angle = 28.0
-	spot.light_volumetric_fog_energy = 1.8
+	spot.shadow_enabled = true
+	spot.light_volumetric_fog_energy = 2.2
 	d.add_child(spot)
 
 
@@ -1011,6 +1134,7 @@ static func dress_extract(zone: Node3D, color: Color) -> void:
 		p.preprocess = 1.0
 		p.position = Vector3(0, 0.4, 0)
 		p.visibility_aabb = AABB(Vector3(-7, -1, -7), Vector3(14, 8, 14))
+		p.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
 		var pm := ParticleProcessMaterial.new()
 		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
 		pm.emission_ring_radius = 4.6
@@ -1033,10 +1157,14 @@ static func dress_extract(zone: Node3D, color: Color) -> void:
 static func tune_camera(cam: Camera3D) -> void:
 	if cam == null:
 		return
-	cam.far = 480.0
-	cam.near = maxf(cam.near, 0.06)
+	cam.far = 520.0
+	cam.near = maxf(cam.near, 0.05)
 	var attr := CameraAttributesPractical.new()
-	attr.exposure_multiplier = 1.06
+	attr.exposure_multiplier = 1.02
+	attr.dof_blur_far_enabled = Settings.is_high()
+	attr.dof_blur_far_distance = 95.0
+	attr.dof_blur_far_transition = 55.0
+	attr.dof_blur_amount = 0.07
 	cam.attributes = attr
 
 
@@ -1219,36 +1347,45 @@ static func mount_title_world(host: Control) -> Node3D:
 	vp.transparent_bg = false
 	vp.size = Vector2i(1280, 720)
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	vp.msaa_3d = Viewport.MSAA_2X
+	Settings.apply_viewport(vp)
 	wrap.add_child(vp)
 	var world := Node3D.new()
 	world.name = "Stage"
 	vp.add_child(world)
+	world.set_meta("look_kind", KIND_TITLE)
 	var we := WorldEnvironment.new()
 	we.environment = make_env(KIND_TITLE)
 	world.add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-28, 42, 0)
-	sun.light_color = Color(1.0, 0.55, 0.28)
-	sun.light_energy = 1.7
+	sun.rotation_degrees = Vector3(-22, 38, 0)
+	sun.light_color = Color(1.0, 0.52, 0.24)
+	sun.light_energy = 1.85
 	sun.shadow_enabled = true
-	sun.light_volumetric_fog_energy = 2.0
+	sun.light_angular_distance = 1.1
+	sun.light_volumetric_fog_energy = 2.4
 	world.add_child(sun)
 	var fill := OmniLight3D.new()
 	fill.position = Vector3(-6, 8, 8)
 	fill.light_color = PALE
-	fill.light_energy = 3.0
-	fill.omni_range = 22.0
+	fill.light_energy = 3.6
+	fill.omni_range = 24.0
+	fill.light_volumetric_fog_energy = 1.8
 	world.add_child(fill)
 	var floor := MeshInstance3D.new()
 	var plane := BoxMesh.new()
 	plane.size = Vector3(80, 0.4, 80)
-	plane.material = surface(Color(0.16, 0.12, 0.09), 0.0, 0.5, 0.08)
+	plane.material = surface(Color(0.16, 0.12, 0.09), 0.0, 0.55, 0.1, 0.28, 7.0)
 	floor.mesh = plane
 	floor.position.y = -0.2
 	world.add_child(floor)
-	dust(world, Vector3(20, 6, 16), Color(0.75, 0.5, 0.22, 0.25), 70)
-	_haze_card(world, Vector3(0, 8, -22), Vector2(70, 22), Color(0.7, 0.32, 0.08, 0.22), 0)
+	_ground_skin(world, Vector2(78, 78), Color(0.16, 0.12, 0.09), 0.55, 0.22)
+	dust(world, Vector3(20, 6, 16), Color(0.75, 0.5, 0.22, 0.25), 90)
+	dust(world, Vector3(14, 8, 12), Color(0.5, 0.9, 0.3, 0.12), 40)
+	_haze_card(world, Vector3(0, 10, -22), Vector2(80, 26), Color(0.7, 0.32, 0.08, 0.26), 0)
+	_haze_card(world, Vector3(0, 12, -20), Vector2(50, 16), Color(0.45, 0.85, 0.28, 0.16), 0)
+	occupation_walker(world, Vector3(18, 0, -16), 210.0, 0.55)
+	_add_fog(world, Vector3(4, 8, -18), Vector3(40, 16, 14), Color(0.5, 0.35, 0.12), PALE, 0.08)
+	_add_puddle(world, Vector3(2.5, 0.02, 3.0), Vector2(6.0, 3.4))
 	var showcase := _showcase_mech(world)
 	var cam := Camera3D.new()
 	cam.position = Vector3(9.5, 5.6, 11.5)
@@ -1257,6 +1394,7 @@ static func mount_title_world(host: Control) -> Node3D:
 	tune_camera(cam)
 	world.add_child(cam)
 	cam.look_at(Vector3(0, 3.8, 0))
+	Settings.apply()
 	return showcase
 
 
@@ -1274,6 +1412,14 @@ static func _showcase_mech(parent: Node3D) -> Node3D:
 	_box(root, Vector3(-1.9, 5.3, 0.15), Vector3(0.55, 2.5, 0.55), rust)
 	_box(root, Vector3(1.9, 5.3, 0.15), Vector3(0.55, 2.5, 0.55), rust)
 	_box(root, Vector3(2.25, 5.55, 0.2), Vector3(0.45, 0.8, 0.45), emit_surface(Color(1.0, 0.45, 0.1), 2.0))
+	_box(root, Vector3(-1.05, 0.28, 0.35), Vector3(1.15, 0.22, 1.45), dark)
+	_box(root, Vector3(1.05, 0.28, 0.35), Vector3(1.15, 0.22, 1.45), dark)
+	_box(root, Vector3(-1.15, 6.15, 0.05), Vector3(1.05, 0.42, 1.35), rust)
+	_box(root, Vector3(1.15, 6.15, 0.05), Vector3(1.05, 0.42, 1.35), rust)
+	_box(root, Vector3(0, 5.35, -1.35), Vector3(1.4, 0.9, 0.55), dark)
+	add_cyl(root, Vector3(-0.35, 4.6, -1.45), 1.1, 0.12, Color(0.18, 0.18, 0.2), Vector3.ZERO, 1.6)
+	add_cyl(root, Vector3(0.35, 4.6, -1.45), 1.1, 0.12, Color(0.18, 0.18, 0.2), Vector3.ZERO, 1.6)
+	add_cyl(root, Vector3(0.18, 7.85, -0.15), 0.7, 0.04, AMBER, Vector3(18, 0, -12), 1.4)
 	var wreck := Node3D.new()
 	wreck.position = Vector3(-7, 0, -4)
 	wreck.rotation_degrees = Vector3(0, 35, 12)
@@ -1296,3 +1442,186 @@ static func _box(parent: Node3D, pos: Vector3, size: Vector3, mat: Material) -> 
 	mi.mesh = box
 	mi.position = pos
 	parent.add_child(mi)
+
+
+static func _add_fog(parent: Node3D, pos: Vector3, size: Vector3, albedo: Color, emission: Color, density: float) -> void:
+	var fv := FogVolume.new()
+	fv.size = size
+	fv.position = pos
+	fv.shape = RenderingServer.FOG_VOLUME_SHAPE_ELLIPSOID
+	var fm := FogMaterial.new()
+	fm.density = density
+	fm.albedo = albedo
+	fm.emission = emission
+	fm.height_falloff = 0.45
+	fm.edge_fade = 0.4
+	fv.material = fm
+	parent.add_child(fv)
+
+
+static func _add_puddle(parent: Node3D, pos: Vector3, size: Vector2) -> void:
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(size.x, 0.018, size.y)
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.08, 0.08, 0.07)
+	m.metallic = 0.88
+	m.roughness = 0.07
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(0.4, 0.4, 0.4)
+	m.albedo_texture = TEX_RUST
+	box.material = m
+	mi.mesh = box
+	mi.position = pos
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+
+
+static func _ground_skin(parent: Node3D, size: Vector2, color: Color, rust_amt: float, wet: float) -> void:
+	var mi := MeshInstance3D.new()
+	mi.name = "LookTerrain"
+	var plane := PlaneMesh.new()
+	plane.size = size
+	plane.subdivide_width = 36
+	plane.subdivide_depth = 28
+	var mat := surface(color, 0.0, rust_amt, 0.08, wet, 8.0)
+	mat.set_shader_parameter("displace", 0.2)
+	plane.material = mat
+	mi.mesh = plane
+	mi.position.y = 0.03
+	parent.add_child(mi)
+
+
+static func occupation_walker(parent: Node3D, pos: Vector3, yaw: float, s: float = 1.0) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	root.rotation_degrees.y = yaw
+	parent.add_child(root)
+	var rust := surface(Color(0.24, 0.16, 0.1), 0.0, 0.58, 0.22)
+	var dark := surface(Color(0.1, 0.1, 0.11), 0.0, 0.28, 0.4)
+	_box(root, Vector3(0, 14.2 * s, 0), Vector3(8.2 * s, 6.8 * s, 10.4 * s), rust)
+	_box(root, Vector3(0, 18.8 * s, 2.4 * s), Vector3(4.6 * s, 3.4 * s, 5.0 * s), dark)
+	_box(root, Vector3(0, 18.9 * s, 5.0 * s), Vector3(2.9 * s, 0.42 * s, 0.22 * s), emit_surface(PALE, 2.6))
+	for i in 4:
+		var sx := -1.0 if i < 2 else 1.0
+		var sz := -1.0 if (i % 2) == 0 else 1.0
+		var hip := Vector3(sx * 3.3 * s, 11.2 * s, sz * 3.7 * s)
+		_box(root, hip + Vector3(sx * 1.5 * s, -4.6 * s, sz * 1.1 * s), Vector3(1.35 * s, 9.2 * s, 1.35 * s), dark)
+		_box(root, hip + Vector3(sx * 2.3 * s, -9.3 * s, sz * 1.9 * s), Vector3(2.5 * s, 0.72 * s, 3.3 * s), rust)
+
+
+static func kneeling_frame(parent: Node3D, pos: Vector3, yaw: float, s: float = 1.0) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	root.rotation_degrees.y = yaw
+	parent.add_child(root)
+	var rust := surface(Color(0.42, 0.24, 0.1), 0.0, 0.4, 0.45)
+	var dark := surface(Color(0.14, 0.14, 0.15), 0.0, 0.2, 0.5)
+	_box(root, Vector3(0, 3.4 * s, 0.6 * s), Vector3(3.4 * s, 2.6 * s, 4.2 * s), rust)
+	_box(root, Vector3(0, 5.2 * s, 1.4 * s), Vector3(1.7 * s, 1.2 * s, 1.8 * s), dark)
+	_box(root, Vector3(0, 5.25 * s, 2.35 * s), Vector3(1.1 * s, 0.28 * s, 0.16 * s), visor_mat(AMBER))
+	_box(root, Vector3(-1.05 * s, 1.1 * s, 1.6 * s), Vector3(0.85 * s, 2.2 * s, 1.4 * s), dark)
+	_box(root, Vector3(1.05 * s, 1.1 * s, 1.6 * s), Vector3(0.85 * s, 2.2 * s, 1.4 * s), dark)
+	_box(root, Vector3(-1.9 * s, 3.6 * s, 0.4 * s), Vector3(0.7 * s, 2.4 * s, 0.7 * s), rust)
+	_box(root, Vector3(2.1 * s, 2.2 * s, 1.8 * s), Vector3(0.55 * s, 0.55 * s, 2.8 * s), rust)
+
+
+static func dress_wreck(host: Node3D) -> void:
+	if host == null:
+		return
+	for name in ["Hull", "Limb", "Limb2"]:
+		var mi := host.get_node_or_null(name) as MeshInstance3D
+		if mi:
+			mi.material_override = surface(Color(0.14, 0.11, 0.09), 0.0, 0.72, 0.16, 0.08, 3.5)
+	add_cyl(host, Vector3(0.8, 2.4, -0.4), 1.8, 0.05, Color(0.12, 0.12, 0.12), Vector3(18, 0, 22))
+	add_cyl(host, Vector3(-0.6, 2.1, 0.5), 1.4, 0.04, Color(0.1, 0.1, 0.1), Vector3(-12, 0, -30))
+	_add_fog(host, Vector3(0.2, 1.6, 0.3), Vector3(3.2, 2.4, 3.2), Color(0.2, 0.16, 0.12), Color(0.4, 0.16, 0.04), 0.08)
+
+
+static func dress_machine(host: Node3D, scale_id: String, paint: Color) -> void:
+	if host == null:
+		return
+	var old := host.get_node_or_null("LookGreeble")
+	if old:
+		old.free()
+	var body := host.get_node_or_null("Body") as Node3D
+	if body:
+		var old_b := body.get_node_or_null("LookGreeble")
+		if old_b:
+			old_b.free()
+	var root := Node3D.new()
+	root.name = "LookGreeble"
+	var upper := root
+	if body:
+		host.add_child(root)
+		upper = Node3D.new()
+		upper.name = "LookGreeble"
+		body.add_child(upper)
+	else:
+		host.add_child(root)
+		upper = root
+	var h := float(host.get("cockpit_height")) if host.get("cockpit_height") != null else 7.4
+	var s := clampf(h / 7.4, 0.35, 3.4)
+	var plate := surface(paint.darkened(0.1), 0.0, 0.2, 0.58, 0.04, 1.8)
+	var dark := surface(paint.darkened(0.42), 0.0, 0.14, 0.68, 0.0, 1.6)
+	if scale_id == "vehicle":
+		_box(root, Vector3(-1.55, 0.35, 2.4), Vector3(0.55, 0.7, 1.1), dark)
+		_box(root, Vector3(1.55, 0.35, 2.4), Vector3(0.55, 0.7, 1.1), dark)
+		_box(root, Vector3(-1.55, 0.35, -2.6), Vector3(0.55, 0.7, 1.1), dark)
+		_box(root, Vector3(1.55, 0.35, -2.6), Vector3(0.55, 0.7, 1.1), dark)
+		_box(root, Vector3(0, 1.15, 3.55), Vector3(2.4, 0.22, 0.28), plate)
+		_box(root, Vector3(0, 2.55, 2.55), Vector3(1.6, 0.12, 0.9), dark)
+		add_cyl(root, Vector3(0, 2.2, -3.6), 1.4, 0.35, Color(0.22, 0.2, 0.16), Vector3(90, 0, 0), 0.0)
+		return
+	_box(upper, Vector3(-1.55 * s, h * 0.08 if body else h * 0.74, 0.12 * s), Vector3(1.05 * s, 0.48 * s, 1.35 * s), plate)
+	_box(upper, Vector3(1.55 * s, h * 0.08 if body else h * 0.74, 0.12 * s), Vector3(1.05 * s, 0.48 * s, 1.35 * s), plate)
+	if not body:
+		_box(upper, Vector3(0, h * 0.72, -1.15 * s), Vector3(1.55 * s, 1.05 * s, 0.55 * s), dark)
+		add_cyl(upper, Vector3(-0.38 * s, h * 0.62, -1.35 * s), 0.85 * s, 0.11 * s, Color(0.16, 0.16, 0.18), Vector3.ZERO, 1.5)
+		add_cyl(upper, Vector3(0.38 * s, h * 0.62, -1.35 * s), 0.85 * s, 0.11 * s, Color(0.16, 0.16, 0.18), Vector3.ZERO, 1.5)
+		add_cyl(upper, Vector3(0.22 * s, h + 0.35 * s, -0.1 * s), 0.55 * s, 0.035 * s, AMBER, Vector3(16, 0, -14), 1.3)
+		_box(root, Vector3(-0.95 * s, 0.22 * s, 0.35 * s), Vector3(1.15 * s, 0.22 * s, 1.45 * s), dark)
+		_box(root, Vector3(0.95 * s, 0.22 * s, 0.35 * s), Vector3(1.15 * s, 0.22 * s, 1.45 * s), dark)
+		add_cyl(root, Vector3(-0.85 * s, h * 0.28, 0.05 * s), 0.7 * s, 0.1 * s, paint.darkened(0.3), Vector3(0, 0, 8), 0.0)
+		add_cyl(root, Vector3(0.85 * s, h * 0.28, 0.05 * s), 0.7 * s, 0.1 * s, paint.darkened(0.3), Vector3(0, 0, -8), 0.0)
+		_box(upper, Vector3(0, h * 0.68, 1.15 * s), Vector3(1.7 * s, 0.12 * s, 0.18 * s), dark)
+		_box(upper, Vector3(0, h * 0.62, 1.15 * s), Vector3(1.7 * s, 0.12 * s, 0.18 * s), dark)
+	else:
+		_box(upper, Vector3(0, 0.2 * s, -3.4 * s), Vector3(3.6 * s, 2.2 * s, 1.2 * s), dark)
+		add_cyl(upper, Vector3(-1.1 * s, -1.2 * s, -3.6 * s), 2.4 * s, 0.28 * s, Color(0.16, 0.16, 0.18), Vector3.ZERO, 1.8)
+		add_cyl(upper, Vector3(1.1 * s, -1.2 * s, -3.6 * s), 2.4 * s, 0.28 * s, Color(0.16, 0.16, 0.18), Vector3.ZERO, 1.8)
+		_box(root, Vector3(-2.4 * s, 0.45 * s, 1.1 * s), Vector3(2.6 * s, 0.45 * s, 3.4 * s), dark)
+		_box(root, Vector3(2.4 * s, 0.45 * s, 1.1 * s), Vector3(2.6 * s, 0.45 * s, 3.4 * s), dark)
+
+
+static func impact(parent: Node, pos: Vector3, color: Color) -> void:
+	if parent == null:
+		return
+	var p := GPUParticles3D.new()
+	p.amount = 18
+	p.lifetime = 0.45
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 70.0
+	pm.initial_velocity_min = 1.4
+	pm.initial_velocity_max = 4.2
+	pm.gravity = Vector3(0, -6.0, 0)
+	pm.scale_min = 0.3
+	pm.scale_max = 0.9
+	pm.color = Color(color.r, color.g, color.b, 0.9)
+	p.process_material = pm
+	p.draw_pass_1 = particle_draw(Vector2(0.07, 0.07), color, true)
+	p.visibility_aabb = AABB(Vector3(-2, -1, -2), Vector3(4, 4, 4))
+	parent.add_child(p)
+	if p is Node3D:
+		(p as Node3D).global_position = pos
+	p.emitting = true
+	if parent.get_tree():
+		parent.get_tree().create_timer(0.8).timeout.connect(func() -> void:
+			if is_instance_valid(p):
+				p.queue_free()
+		)

@@ -8,6 +8,7 @@ var _leaving := false
 var _status: Label
 var _ip: LineEdit
 var _showcase: Node3D
+var _quality_btn: Button
 
 
 func _enter_tree() -> void:
@@ -90,6 +91,7 @@ func _build() -> void:
 	_ip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	addr_row.add_child(_ip)
 	_add_button(v, "JOIN FRIEND", _join)
+	_quality_btn = _add_button(v, Settings.button_label(), _cycle_quality)
 	_add_button(v, "QUIT", _quit)
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -110,12 +112,19 @@ func _process(delta: float) -> void:
 		_showcase.rotate_y(delta * 0.16)
 
 
-func _add_button(box: VBoxContainer, text: String, cb: Callable) -> void:
+func _add_button(box: VBoxContainer, text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, 36)
 	b.pressed.connect(cb)
 	box.add_child(b)
+	return b
+
+
+func _cycle_quality() -> void:
+	Settings.cycle()
+	if _quality_btn:
+		_quality_btn.text = Settings.button_label()
 
 
 func _set_status(text: String) -> void:
