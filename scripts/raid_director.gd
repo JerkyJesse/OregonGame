@@ -361,6 +361,8 @@ static func _spawn_events(world: Node3D, map_id: String) -> void:
 			_nameplate(drop, "SEALED-AIR CAN  [E] then [R] swap", Vector3(0, 1.6, 0), Color(0.55, 0.95, 0.45))
 	_spawn_pocket_filters(world, map_id)
 	var inbound := float(profile.get("inbound_delay", 90.0))
+	if RunState.walkthrough:
+		inbound = -1.0
 	if map_id != "pipeline" and inbound > 0.0:
 		world.get_tree().create_timer(inbound).timeout.connect(func() -> void:
 			if not is_instance_valid(world) or not RunState.in_raid:

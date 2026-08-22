@@ -13,3 +13,6 @@ dist/
 export_credentials.cfg
 *.pfx
 *.p12
+docs/walkthrough/
+tools/walkthrough/vo/
+*.avi

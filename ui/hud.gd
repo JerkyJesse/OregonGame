@@ -539,6 +539,8 @@ func close_slot_picker() -> void:
 
 
 func toggle_pause() -> void:
+	if RunState.walkthrough:
+		return
 	if not gameplay_active:
 		return
 	if paused:

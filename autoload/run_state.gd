@@ -49,6 +49,7 @@ var tax_cleared: bool = false
 var extracts_completed: int = 0
 var last_extract_tags: Array = []
 var vendor_rotation: int = 0
+var walkthrough: bool = false
 const FILTER_MAX := 100.0
 
 
@@ -59,7 +60,7 @@ func _ready() -> void:
 
 
 func new_game() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
+	if not walkthrough and FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(SAVE_PATH)
 	stash.clear()
 	_empty_loadouts()
@@ -548,6 +549,12 @@ func _tag_extract_part(part: Dictionary, tags: Array) -> void:
 
 
 func fail_raid(reason: String, lose_machine: bool = false) -> void:
+	if walkthrough:
+		health = cap(deploy_scale if deploy_scale != "scavenger" else "scavenger", "hull")
+		if deploy_scale == "scavenger":
+			health = 100.0
+		filter = FILTER_MAX
+		return
 	raid_carry.clear()
 	in_raid = false
 	health = 100.0
@@ -789,10 +796,14 @@ func tick_filter(delta: float, sealed: bool, in_bloom: bool) -> String:
 
 
 func hotwire_chance() -> float:
+	if walkthrough:
+		return 1.0
 	return clampf(0.28 + repair_skill * 0.55, 0.15, 0.92)
 
 
 func save_state() -> void:
+	if walkthrough:
+		return
 	var payload := {
 		"schema": SCHEMA,
 		"stash": _dicts_to_untyped(stash),

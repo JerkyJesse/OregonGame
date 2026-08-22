@@ -21,6 +21,7 @@ func _ready() -> void:
 	for id in extra_ids:
 		remaining.append(id)
 	LOOK.smoke(self, Vector3(0.2, 2.1, 0.3), Color(0.16, 0.14, 0.12, 0.5))
+	LOOK.dress_wreck(self)
 	if _loot_mesh:
 		_loot_mesh.material_override = LOOK.emit_surface(Color(0.95, 0.45, 0.1), 2.2)
 	var ember := OmniLight3D.new()
