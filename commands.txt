@@ -1,0 +1,30 @@
+# Command log
+
+2026-08-24 — activate caveman-activate, make always on
+- Read caveman SKILL.md, caveman-activate.md, caveman-activate.js, caveman-config.js, create-rule SKILL.md
+- GetDynamicTools cursor-app-control / cursor_dialog
+- cursor_dialog item=rule scope=user action=list
+- cursor_dialog item=rule scope=user action=add title="Caveman always on" id=17582449 (approved; global persist)
+- PowerShell (all perms, approved): write %USERPROFILE%\.claude\.caveman-active = full; write %APPDATA%\caveman\config.json defaultMode=full; node caveman-activate.js (exit 0, level full)
+- Write .cursor/rules/caveman.mdc skipped (blocked; user rule already global)
+
+2026-08-25 — single-file exe, hide IPs from all visibility
+- Get-Command / where.exe / Get-ChildItem: find Godot 4.7.2 + export_templates\4.7.2.stable
+- Get-Item Downloads\Godot_v4.7.2-stable_win64.exe (folder; real exe inside)
+- git log / git show 4fce607: prior hide-IP commit leftovers
+- Stop-Process -Id 14456: kill slow recursive Godot search
+- Edit export_presets.cfg: binary_format/embed_pck=true
+- Edit autoload/net_session.gd: drop lan_ips, scrub_visible, join_ip getter="", clear join_address on drop
+- Edit scripts/title.gd + ui/hud.gd: secret join field, no IP labels, scrub banners/HUD
+- Edit README.md, tools/SHARE_README.txt, tools/pack_windows_share.ps1: no sidecar .pck, no 127.0.0.1 in copy
+- Godot_v4.7.2-stable_win64_console.exe --headless --path <repo> --import (exit 0)
+- Godot_v4.7.2-stable_win64_console.exe --headless --path <repo> --export-release "Windows Desktop" build\GetTheMechOuttaDodge.exe (exit 0)
+- Remove-Item build\GetTheMechOuttaDodge.pck (stale 2026-08-20 sidecar would override embed)
+
+2026-08-25 — GitHub release v0.2.1 (single-file exe)
+- gh release list / gh release view v0.2.0
+- Bump version 0.1.0 → 0.2.1 in project.godot, export_presets.cfg, README.md, SHARE_README.txt, pack_windows_share.ps1
+- git add source files (not .import / .cursor)
+- git commit / git push origin main
+- Godot --export-release Windows Desktop (rebuild so PE version is 0.2.1)
+- gh release create v0.2.1 --latest with GetTheMechOuttaDodge.exe only

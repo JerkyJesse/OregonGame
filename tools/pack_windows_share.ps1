@@ -18,7 +18,7 @@
 param(
     [string]$BuildDir = "",
     [string]$OutDir = "",
-    [string]$Version = "0.1.0"
+    [string]$Version = "0.2.1"
 )
 
 Set-StrictMode -Version Latest
@@ -34,9 +34,10 @@ if (-not (Test-Path -LiteralPath $exePath)) {
     throw "No export at $exePath. Export the Windows Desktop preset to build/ first (release, not debug)."
 }
 
-$pckPath = Join-Path $BuildDir "GetTheMechOuttaDodge.pck"
-if (-not (Test-Path -LiteralPath $pckPath)) {
-    Write-Warning "No GetTheMechOuttaDodge.pck next to the exe. Embed PCK is off, so friends need that file."
+# Embed PCK is on. A sidecar .pck next to the exe would override the embedded pack.
+Get-ChildItem -LiteralPath $BuildDir -Filter "*.pck" -ErrorAction SilentlyContinue | ForEach-Object {
+    Write-Host "Removing leftover $($_.Name) so the embedded pack is used."
+    Remove-Item -LiteralPath $_.FullName -Force
 }
 
 function Find-SignTool {
@@ -85,7 +86,7 @@ New-Item -ItemType Directory -Path $stage | Out-Null
 try {
     Copy-Item -LiteralPath $exePath -Destination $stage
     Get-ChildItem -LiteralPath $BuildDir -File | Where-Object {
-        $_.Name -ne $exeName -and $_.Extension -notin @(".pdb", ".tmp")
+        $_.Name -ne $exeName -and $_.Extension -notin @(".pdb", ".tmp", ".pck")
     } | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination $stage
     }

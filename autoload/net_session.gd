@@ -22,7 +22,12 @@ var last_error: String = ""
 var join_address: String = ""
 
 
+var _rx_ipv4: RegEx
+var _rx_ipv6: RegEx
+
+
 func _ready() -> void:
+	_ensure_scrub_rx()
 	multiplayer.peer_connected.connect(_on_peer_in)
 	multiplayer.peer_disconnected.connect(_on_peer_left)
 	multiplayer.server_disconnected.connect(_on_server_gone)
@@ -50,7 +55,7 @@ func host_game() -> Error:
 	peer = ENetMultiplayerPeer.new()
 	var err := peer.create_server(PORT, MAX_PLAYERS)
 	if err != OK:
-		last_error = "Could not host on port %d (%s). Close the other instance or wait a few seconds." % [PORT, error_string(err)]
+		last_error = scrub_visible("Could not host on port %d (%s). Close the other instance or wait a few seconds." % [PORT, error_string(err)])
 		peer = null
 		session_changed.emit()
 		return err
@@ -70,14 +75,15 @@ func join_game(address: String) -> Error:
 		if address.strip_edges() == "":
 			target = "127.0.0.1"
 		else:
-			last_error = "Host address looks invalid. Use a hostname or address, no port."
+			last_error = "Join field looks invalid. Hostname only — no port."
 			session_changed.emit()
 			return ERR_INVALID_PARAMETER
 	join_address = target
 	peer = ENetMultiplayerPeer.new()
 	var err := peer.create_client(target, PORT)
 	if err != OK:
-		last_error = "Could not reach host on port %d (%s)." % [PORT, error_string(err)]
+		last_error = scrub_visible("Could not reach host on port %d (%s)." % [PORT, error_string(err)])
+		join_address = ""
 		peer = null
 		session_changed.emit()
 		return err
@@ -230,18 +236,24 @@ func _drop() -> void:
 	peer = null
 	late_join = false
 	raid_path = ""
+	join_address = ""
 
 
-## Kept for diagnostics / tooling — never call from UI labels.
-func lan_ips() -> PackedStringArray:
-	var out: PackedStringArray = PackedStringArray()
-	for addr in IP.get_local_addresses():
-		var a := str(addr)
-		if a.find(":") >= 0:
-			continue
-		if a.begins_with("127.") or a.begins_with("0.") or a.begins_with("169.254."):
-			continue
-		out.append(a)
+func _ensure_scrub_rx() -> void:
+	if _rx_ipv4 == null:
+		_rx_ipv4 = RegEx.new()
+		_rx_ipv4.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b")
+	if _rx_ipv6 == null:
+		_rx_ipv6 = RegEx.new()
+		_rx_ipv6.compile("(?i)\\b(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{0,4}\\b")
+
+
+## Strip IPv4/IPv6 from any string before it hits a label, banner, or status line.
+func scrub_visible(text: String) -> String:
+	_ensure_scrub_rx()
+	var out := text
+	out = _rx_ipv4.sub(out, "[hidden]", true)
+	out = _rx_ipv6.sub(out, "[hidden]", true)
 	return out
 
 
@@ -339,9 +351,9 @@ func sanity_loot(part: Dictionary) -> bool:
 	return true
 
 
-## Compat alias — older UI used join_ip; keep empty so nothing IP-like is prefilled.
+## Compat alias — getter stays empty so leftover UI cannot print a host/IP.
 var join_ip: String:
 	get:
-		return join_address
+		return ""
 	set(v):
 		join_address = sanitize_join_address(str(v))

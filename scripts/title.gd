@@ -6,7 +6,7 @@ const LOOK := preload("res://world/WorldLook.gd")
 var _crawl_layer: Control
 var _leaving := false
 var _status: Label
-var _ip: LineEdit
+var _join_field: LineEdit
 var _showcase: Node3D
 var _quality_btn: Button
 
@@ -84,14 +84,16 @@ func _build() -> void:
 	addr_row.add_theme_constant_override("separation", 8)
 	v.add_child(addr_row)
 	var addr_lab := Label.new()
-	addr_lab.text = "Host address"
+	addr_lab.text = "Join host"
 	addr_row.add_child(addr_lab)
-	_ip = LineEdit.new()
-	_ip.text = ""
-	_ip.placeholder_text = "host address (hidden while typing)"
-	_ip.secret = true
-	_ip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	addr_row.add_child(_ip)
+	_join_field = LineEdit.new()
+	_join_field.text = ""
+	_join_field.placeholder_text = "paste host (hidden)"
+	_join_field.secret = true
+	_join_field.secret_character = "*"
+	_join_field.context_menu_enabled = false
+	_join_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	addr_row.add_child(_join_field)
 	_add_button(v, "JOIN FRIEND", _join)
 	_quality_btn = _add_button(v, Settings.button_label(), _cycle_quality)
 	_add_button(v, "QUIT", _quit)
@@ -99,7 +101,7 @@ func _build() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_color_override("font_color", Color(0.7, 0.82, 0.78))
-	_status.text = "Host a raid, then friends enter your host address and Join. Same network. Port %d." % NetSession.PORT
+	_status.text = "Host a raid. Friends paste the host on the same network, then Join. Port %d." % NetSession.PORT
 	root.add_child(_status)
 	var foot := Label.new()
 	foot.text = WorldLore.controls_footer()
@@ -131,7 +133,7 @@ func _cycle_quality() -> void:
 
 func _set_status(text: String) -> void:
 	if _status:
-		_status.text = text
+		_status.text = NetSession.scrub_visible(text)
 
 
 func _focus_menu() -> void:
@@ -273,8 +275,9 @@ func _join() -> void:
 
 func _join_async() -> void:
 	var address := ""
-	if _ip:
-		address = _ip.text.strip_edges()
+	if _join_field:
+		address = _join_field.text.strip_edges()
+		_join_field.text = ""
 	_set_status("Connecting to host…")
 	print("JOIN_START")
 	var err := await NetSession.join_and_wait(address)

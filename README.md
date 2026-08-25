@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/Godot-4.7-478cbf?logo=godotengine&logoColor=white" alt="Godot 4.7">
   <img src="https://img.shields.io/badge/GDScript-pure-478cbf" alt="Pure GDScript">
   <img src="https://img.shields.io/badge/platform-Windows-0078d6?logo=windows&logoColor=white" alt="Windows">
-  <img src="https://img.shields.io/badge/version-0.1.0-c45c1a" alt="Version 0.1.0">
+  <img src="https://img.shields.io/badge/version-0.2.1-c45c1a" alt="Version 0.2.1">
   <img src="https://img.shields.io/badge/license-All%20Rights%20Reserved-16181b" alt="All Rights Reserved">
 </p>
 
@@ -192,11 +192,10 @@ Title menu:
 
 ### Windows build
 
-Export **Windows Desktop** from the editor (`export_presets.cfg` writes `build/GetTheMechOuttaDodge.exe`).
+Export **Windows Desktop** from the editor (`export_presets.cfg` writes a single `build/GetTheMechOuttaDodge.exe` with the pack embedded — no sidecar `.pck`).
 
-1. Unzip the whole folder. Keep every file in the same place.
+1. Unzip the folder.
 2. Run `GetTheMechOuttaDodge.exe`.
-3. Leave `GetTheMechOuttaDodge.pck` next to the exe.
 
 If Windows SmartScreen says *Windows protected your PC*, that is normal for a small unsigned build. **More info**, then **Run anyway**. Do not turn off antivirus.
 
@@ -204,11 +203,11 @@ If Windows SmartScreen says *Windows protected your PC*, that is normal for a sm
 
 ## Multiplayer
 
-Same network. Host first. Friends type the host address (no port — the game always uses **7777**) and **JOIN FRIEND**. Up to **8** players.
+Same network. Host first. Friends paste the host (no port — the game always uses **7777**) and **JOIN FRIEND**. Up to **8** players.
 
 - Host launches Ash Yard combat as scavenger.
 - Joiners land **late drop** and wait for the host to start the raid.
-- Empty address field loops back to `127.0.0.1` for local smoke joins.
+- Empty join field uses this PC for local smoke joins.
 
 Trust is still scarcer than plating.
 

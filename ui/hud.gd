@@ -182,7 +182,7 @@ func _process(delta: float) -> void:
 	else:
 		_timer.visible = false
 	if _net:
-		_net.text = "%s   %s   TIER %d   %d cr" % [NetSession.status_text(), WorldLore.faction_name(RunState.faction).to_upper(), RunState.hangar_tier, RunState.credits]
+		_net.text = NetSession.scrub_visible("%s   %s   TIER %d   %d cr" % [NetSession.status_text(), WorldLore.faction_name(RunState.faction).to_upper(), RunState.hangar_tier, RunState.credits])
 	_tick_bay_hold(delta)
 
 
@@ -296,6 +296,7 @@ func set_extract(progress: float) -> void:
 func show_banner(text: String, priority: int = BANNER_NORMAL) -> void:
 	if text.strip_edges() == "":
 		return
+	text = NetSession.scrub_visible(text)
 	if _banner_left > 0.55 and priority < _banner_pri:
 		return
 	_banner_pri = priority
@@ -860,12 +861,14 @@ func open_deploy() -> void:
 	box.add_child(_option(["ash_yard", "pipeline"], RunState.raid_map, _on_map_item, true))
 	_add_label(box, "Faction")
 	box.add_child(_option(RunState.FACTIONS, RunState.faction, _on_faction_item, true))
-	_add_label(box, "Friend host address (same network)")
+	_add_label(box, "Join host (same network)")
 	var addr := LineEdit.new()
 	addr.name = "JoinAddress"
 	addr.text = ""
-	addr.placeholder_text = "host address (hidden while typing)"
+	addr.placeholder_text = "paste host (hidden)"
 	addr.secret = true
+	addr.secret_character = "*"
+	addr.context_menu_enabled = false
 	box.add_child(addr)
 	var host := Button.new()
 	host.text = "Host listen-server :%d" % NetSession.PORT
@@ -940,11 +943,11 @@ func _refresh_deploy_briefing() -> void:
 	var net: Label = _deploy.get_node_or_null("M/Root/S/V/NetHint") as Label
 	if net:
 		if NetSession.is_online() and NetSession.is_host():
-			net.text = "Hosting on port %d. Friends enter your host address, then you press LAUNCH RAID." % NetSession.PORT
+			net.text = "Hosting on port %d. Friends paste the host, then you press LAUNCH RAID." % NetSession.PORT
 		elif NetSession.is_online():
 			net.text = "Joined host. Wait for the host to launch — do not leave this hangar."
 		else:
-			net.text = "Offline solo, or host then share your host address off-screen. Same network. Port %d." % NetSession.PORT
+			net.text = "Offline solo, or host then tell friends the host off-screen. Same network. Port %d." % NetSession.PORT
 
 
 func _pick_scale(s: String) -> void:
@@ -978,7 +981,7 @@ func _pick_faction(f: String) -> void:
 
 func _host() -> void:
 	if NetSession.host_game() == OK:
-		show_banner("Hosting on port %d. Share your host address off-screen." % NetSession.PORT)
+		show_banner("Hosting on port %d. Tell friends the host off-screen." % NetSession.PORT)
 	else:
 		show_banner(NetSession.last_error if NetSession.last_error != "" else "Host failed.")
 	_refresh_deploy_briefing()
@@ -992,7 +995,9 @@ func _join_address_text() -> String:
 	if _deploy and is_instance_valid(_deploy):
 		var addr: LineEdit = _deploy.get_node_or_null("M/Root/S/V/JoinAddress") as LineEdit
 		if addr:
-			return addr.text.strip_edges()
+			var text := addr.text.strip_edges()
+			addr.text = ""
+			return text
 	return ""
 
 

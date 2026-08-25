@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="GetTheMechOuttaDodge"
 config/description="After the Tarkovic Wars. Last humans raid occupation yards. Scavenge, bolt, extract."
-config/version="0.1.0"
+config/version="0.2.1"
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
