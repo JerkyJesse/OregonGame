@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/GDScript-pure-478cbf" alt="Pure GDScript">
   <img src="https://img.shields.io/badge/platform-Windows-0078d6?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/version-0.2.1-c45c1a" alt="Version 0.2.1">
-  <img src="https://img.shields.io/badge/license-All%20Rights%20Reserved-16181b" alt="All Rights Reserved">
+  <img src="https://img.shields.io/badge/license-dual%20(PolyForm%20NC%20%2B%20commercial)-16181b" alt="Dual licensed: PolyForm Noncommercial + commercial">
 </p>
 
 <p align="center">
@@ -234,4 +234,4 @@ Cloud / headless notes for Cursor agents live in [`AGENTS.md`](AGENTS.md).
   Occupancy ongoing. You may extract. You may not own.
 </p>
 
-**© 2026 JerkyJesse. All rights reserved.**
+**© 2026 JerkyJesse.** Dual-licensed: [PolyForm Noncommercial 1.0.0](LICENSE) for noncommercial use, or a [commercial license](COMMERCIAL.md) for any commercial purpose.
